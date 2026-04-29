@@ -20,6 +20,7 @@ export interface Punch {
   index: number;
   time: string;
   location: string | null;
+  photo?: string | null;
 }
 
 export interface AttendanceRecord {
@@ -34,8 +35,13 @@ export type RootStackParamList = {
   EmployeeHome: { user: User; token: string };
   AdminDashboard: { user: User; token: string };
   EmployeeDetail: {
-    employee: User;
-    attendance: any[];
+    user: User;             // logged-in admin
+    token: string;
+    employeeId: number;     // UserMasterID
+    employeeName: string;
+    employeeEmail: string;
+    isActive: boolean;
+    date: string;           // YYYY-MM-DD
   };
   AttendanceHistory: { user: User; token: string };
   ManageUnits: { user: User; token: string };

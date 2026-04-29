@@ -5,6 +5,7 @@ import { RootStackParamList } from './src/types';
 import { LoginScreen } from './src/screens/LoginScreen';
 import { EmployeeHomeScreen } from './src/screens/EmployeeHomeScreen';
 import { AdminDashboardScreen } from './src/screens/AdminDashboardScreen';
+import { EmployeeDetailScreen } from './src/screens/EmployeeDetailScreen';
 import { AttendanceHistoryScreen } from './src/screens/AttendanceHistoryScreen';
 import { ManageUnitsScreen } from './src/screens/ManageUnitsScreen';
 import { UnitFormScreen } from './src/screens/UnitFormScreen';
@@ -25,6 +26,7 @@ export default function App() {
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="EmployeeHome" component={EmployeeHomeScreen} />
         <Stack.Screen name="AdminDashboard" component={AdminDashboardScreen} />
+        <Stack.Screen name="EmployeeDetail" component={EmployeeDetailScreen} />
         <Stack.Screen name="AttendanceHistory" component={AttendanceHistoryScreen} />
         <Stack.Screen name="ManageUnits" component={ManageUnitsScreen} />
         <Stack.Screen name="UnitForm" component={UnitFormScreen} />

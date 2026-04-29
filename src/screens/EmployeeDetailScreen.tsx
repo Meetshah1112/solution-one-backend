@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,174 +6,230 @@ import {
   StyleSheet,
   StatusBar,
   ScrollView,
+  ActivityIndicator,
+  Alert,
+  Image,
+  Linking,
+  Modal,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
-import { RootStackParamList } from '../types';
+import { RootStackParamList, Punch } from '../types';
+import { api } from '../services/api';
 
 type EmployeeDetailProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'EmployeeDetail'>;
   route: RouteProp<RootStackParamList, 'EmployeeDetail'>;
 };
 
-export const EmployeeDetailScreen: React.FC<EmployeeDetailProps> = ({ 
+export const EmployeeDetailScreen: React.FC<EmployeeDetailProps> = ({
   navigation,
-  route 
+  route,
 }) => {
-  const { employee, attendance } = route.params;
+  const { user, token, employeeId, employeeName, employeeEmail, isActive, date } =
+    route.params;
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
+  const [loading, setLoading] = useState(true);
+  const [punches, setPunches] = useState<Punch[]>([]);
+  const [zoomedPhoto, setZoomedPhoto] = useState<string | null>(null);
+
+  useEffect(() => {
+    loadDetail();
+  }, []);
+
+  const loadDetail = async () => {
+    try {
+      setLoading(true);
+      const res = await api.getEmployeePunches(token, employeeId, date);
+      if (res.success) {
+        setPunches(res.punches || []);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', error.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const formatTime = (dateTime: string) => {
-    if (!dateTime) return 'N/A';
-    const date = new Date(dateTime);
-    return date.toLocaleTimeString('en-US', { 
-      hour: '2-digit', 
+    const d = new Date(dateTime);
+    return d.toLocaleTimeString('en-US', {
+      hour: '2-digit',
       minute: '2-digit',
-      hour12: true 
+      hour12: true,
     });
   };
 
-  const getStatusColor = (status: string) => {
-    switch(status) {
-      case 'present':
-        return '#4CAF50';
-      case 'late':
-        return '#FF9800';
-      case 'absent':
-        return '#D32F2F';
-      default:
-        return '#666';
-    }
+  const openMap = (location: string) => {
+    Linking.openURL('https://www.google.com/maps/search/?api=1&query=' + location);
   };
-
-  const getStatusIcon = (status: string) => {
-    switch(status) {
-      case 'present':
-        return '✓';
-      case 'late':
-        return '⚠';
-      case 'absent':
-        return '✕';
-      default:
-        return '?';
-    }
-  };
-
-  const calculateStats = () => {
-    const total = attendance.length;
-    const present = attendance.filter((a: any) => a.status === 'present').length;
-    const late = attendance.filter((a: any) => a.status === 'late').length;
-    const absent = attendance.filter((a: any) => a.status === 'absent').length;
-    return { total, present, late, absent };
-  };
-
-  const stats = calculateStats();
 
   return (
     <View style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="#1E68B8" />
-      
+
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton}
-          onPress={() => navigation.goBack()}
-        >
+        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
           <Text style={styles.backIcon}>←</Text>
         </TouchableOpacity>
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>{employee.name}</Text>
-          <Text style={styles.headerSubtitle}>{employee.email}</Text>
+          <View style={styles.headerNameRow}>
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {employeeName}
+            </Text>
+            <View
+              style={[
+                styles.statusBadge,
+                isActive ? styles.activeBadge : styles.blockedBadge,
+              ]}
+            >
+              <Text
+                style={[
+                  styles.statusBadgeText,
+                  { color: isActive ? '#2E7D32' : '#C62828' },
+                ]}
+              >
+                {isActive ? 'Active' : 'Blocked'}
+              </Text>
+            </View>
+          </View>
+          <Text style={styles.headerSubtitle}>{employeeEmail}</Text>
+          <Text style={styles.headerDate}>📅 {date}</Text>
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Statistics */}
-        <View style={styles.statsContainer}>
-          <View style={[styles.statCard, { borderColor: '#2196F3' }]}>
-            <Text style={styles.statNumber}>{stats.total}</Text>
-            <Text style={styles.statLabel}>Total Days</Text>
-          </View>
-          <View style={[styles.statCard, { borderColor: '#4CAF50' }]}>
-            <Text style={styles.statNumber}>{stats.present}</Text>
-            <Text style={styles.statLabel}>Present</Text>
-          </View>
-          <View style={[styles.statCard, { borderColor: '#FF9800' }]}>
-            <Text style={styles.statNumber}>{stats.late}</Text>
-            <Text style={styles.statLabel}>Late</Text>
-          </View>
-          <View style={[styles.statCard, { borderColor: '#D32F2F' }]}>
-            <Text style={styles.statNumber}>{stats.absent}</Text>
-            <Text style={styles.statLabel}>Absent</Text>
-          </View>
+      {loading ? (
+        <View style={styles.center}>
+          <ActivityIndicator size="large" color="#1E68B8" />
+          <Text style={styles.loadingText}>Loading punches...</Text>
         </View>
+      ) : (
+        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+          {/* Stats */}
+          <View style={styles.statsBar}>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>{punches.length}</Text>
+              <Text style={styles.statLabel}>Punches</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>
+                {punches.filter((p) => p.photo).length}
+              </Text>
+              <Text style={styles.statLabel}>With Photo</Text>
+            </View>
+            <View style={styles.statBox}>
+              <Text style={styles.statNumber}>
+                {punches.filter((p) => p.location).length}
+              </Text>
+              <Text style={styles.statLabel}>With Location</Text>
+            </View>
+          </View>
 
-        {/* Attendance History */}
-        <View style={styles.historySection}>
-          <Text style={styles.sectionTitle}>Attendance History (Last 30 Days)</Text>
-          
-          {attendance.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No attendance records found</Text>
+          {/* Punches */}
+          <Text style={styles.sectionTitle}>Punch Records</Text>
+
+          {punches.length === 0 ? (
+            <View style={styles.emptyCard}>
+              <Text style={styles.emptyIcon}>🚫</Text>
+              <Text style={styles.emptyText}>No punches recorded for this date</Text>
             </View>
           ) : (
-            attendance.map((record: any) => (
-              <TouchableOpacity 
-                key={record.id} 
-                style={styles.historyCard}
-                activeOpacity={0.7}
-                onPress={() => navigation.navigate('AttendanceLocationDetail', {
-                  record,
-                  employeeName: employee.name,
-                })}
-              >
-                <View style={styles.historyLeft}>
-                  <View style={styles.historyDate}>
-                    <Text style={styles.historyDateText}>{formatDate(record.date)}</Text>
+            punches.map((p) => (
+              <View key={p.index} style={styles.punchCard}>
+                {/* Top row */}
+                <View style={styles.punchTopRow}>
+                  <View style={styles.punchIndexBadge}>
+                    <Text style={styles.punchIndexText}>#{p.index}</Text>
                   </View>
-                  <View style={styles.historyTimes}>
-                    <View style={styles.timeRow}>
-                      <Text style={styles.timeLabel}>In:</Text>
-                      <Text style={styles.timeValue}>{formatTime(record.check_in_time)}</Text>
-                    </View>
-                    {record.check_out_time && (
-                      <View style={styles.timeRow}>
-                        <Text style={styles.timeLabel}>Out:</Text>
-                        <Text style={styles.timeValue}>{formatTime(record.check_out_time)}</Text>
-                      </View>
-                    )}
+                  <Text style={styles.punchTime}>{formatTime(p.time)}</Text>
+                  {p.location ? (
+                    <TouchableOpacity
+                      style={styles.mapButton}
+                      onPress={() => openMap(p.location!)}
+                    >
+                      <Text style={styles.mapButtonText}>📍 Map</Text>
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={styles.noLocation}>No GPS</Text>
+                  )}
+                </View>
+
+                {/* Photo */}
+                {p.photo ? (
+                  <TouchableOpacity onPress={() => setZoomedPhoto(p.photo!)}>
+                    <Image
+                      source={{ uri: p.photo }}
+                      style={styles.punchPhoto}
+                      resizeMode="cover"
+                    />
+                    <Text style={styles.tapHint}>Tap photo to zoom</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={styles.noPhotoBox}>
+                    <Text style={styles.noPhotoText}>📷 No photo captured</Text>
                   </View>
-                </View>
-                <View 
-                  style={[
-                    styles.historyStatus, 
-                    { backgroundColor: getStatusColor(record.status) }
-                  ]}
-                >
-                  <Text style={styles.statusIcon}>{getStatusIcon(record.status)}</Text>
-                </View>
-              </TouchableOpacity>
+                )}
+              </View>
             ))
           )}
+
+          {/* Branch Permissions on its own */}
+          <TouchableOpacity
+            style={styles.branchPermsButton}
+            onPress={() =>
+              navigation.navigate('BranchPermissions', {
+                user,
+                token,
+                employeeId,
+                employeeName,
+              })
+            }
+          >
+            <Text style={styles.branchPermsIcon}>🔐</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.branchPermsText}>Branch Permissions</Text>
+              <Text style={styles.branchPermsHint}>
+                Manage which branches this employee can punch from
+              </Text>
+            </View>
+            <Text style={styles.branchPermsArrow}>›</Text>
+          </TouchableOpacity>
+
+          <View style={{ height: 30 }} />
+        </ScrollView>
+      )}
+
+      {/* Photo zoom modal */}
+      <Modal
+        visible={zoomedPhoto !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setZoomedPhoto(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <TouchableOpacity
+            style={styles.modalCloseArea}
+            activeOpacity={1}
+            onPress={() => setZoomedPhoto(null)}
+          >
+            {zoomedPhoto && (
+              <Image
+                source={{ uri: zoomedPhoto }}
+                style={styles.zoomedImage}
+                resizeMode="contain"
+              />
+            )}
+            <Text style={styles.modalHint}>Tap anywhere to close</Text>
+          </TouchableOpacity>
         </View>
-      </ScrollView>
+      </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
+  container: { flex: 1, backgroundColor: '#F5F5F5' },
   header: {
     backgroundColor: '#1E68B8',
     paddingTop: 50,
@@ -191,132 +247,119 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  backIcon: {
-    fontSize: 24,
-    color: '#FFF',
-    fontWeight: '600',
+  backIcon: { fontSize: 24, color: '#FFF', fontWeight: '600' },
+  headerInfo: { flex: 1 },
+  headerNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
+  headerTitle: { fontSize: 18, fontWeight: '600', color: '#FFF', flexShrink: 1 },
+  statusBadge: {
+    marginLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
   },
-  headerInfo: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFF',
-  },
-  headerSubtitle: {
-    fontSize: 12,
-    color: '#E0E0E0',
-    marginTop: 2,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-  },
-  statsContainer: {
+  activeBadge: { backgroundColor: '#C8E6C9' },
+  blockedBadge: { backgroundColor: '#FFCDD2' },
+  statusBadgeText: { fontSize: 10, fontWeight: '700' },
+  headerSubtitle: { fontSize: 12, color: '#E0E0E0', marginTop: 2 },
+  headerDate: { fontSize: 11, color: '#B3D9FF', marginTop: 4 },
+  content: { flex: 1, paddingHorizontal: 20 },
+  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { marginTop: 12, color: '#666' },
+  statsBar: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 25,
-  },
-  statCard: {
-    flex: 1,
     backgroundColor: '#FFF',
     borderRadius: 12,
-    padding: 12,
-    marginHorizontal: 4,
-    alignItems: 'center',
-    borderWidth: 2,
+    padding: 14,
+    marginTop: 18,
+    marginBottom: 18,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
   },
-  statNumber: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  statLabel: {
-    fontSize: 10,
-    color: '#666',
-    marginTop: 4,
-    textAlign: 'center',
-  },
-  historySection: {
-    marginBottom: 30,
-  },
+  statBox: { flex: 1, alignItems: 'center' },
+  statNumber: { fontSize: 22, fontWeight: 'bold', color: '#1E68B8' },
+  statLabel: { fontSize: 11, color: '#666', marginTop: 2 },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#1E68B8',
-    marginBottom: 15,
+    marginBottom: 10,
   },
-  emptyState: {
+  emptyCard: {
     backgroundColor: '#FFF',
+    padding: 30,
     borderRadius: 12,
-    padding: 40,
     alignItems: 'center',
   },
-  emptyText: {
-    color: '#666',
-    fontSize: 16,
-  },
-  historyCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+  emptyIcon: { fontSize: 36, marginBottom: 8 },
+  emptyText: { color: '#666', fontSize: 14 },
+  punchCard: {
     backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 15,
+    borderRadius: 14,
+    padding: 14,
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  historyLeft: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  historyDate: {
+  punchTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  punchIndexBadge: {
     backgroundColor: '#1E68B8',
-    borderRadius: 8,
-    paddingVertical: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginRight: 12,
+  },
+  punchIndexText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
+  punchTime: { flex: 1, fontSize: 16, fontWeight: '600', color: '#333' },
+  mapButton: {
+    backgroundColor: '#1E68B8',
     paddingHorizontal: 12,
-    marginRight: 15,
-    minWidth: 90,
+    paddingVertical: 6,
+    borderRadius: 8,
   },
-  historyDateText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '600',
+  mapButtonText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
+  noLocation: { fontSize: 11, color: '#999', fontStyle: 'italic' },
+  punchPhoto: {
+    width: '100%',
+    aspectRatio: 4 / 3,
+    backgroundColor: '#000',
+    borderRadius: 10,
+  },
+  tapHint: {
     textAlign: 'center',
-  },
-  historyTimes: {
-    flex: 1,
-  },
-  timeRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 2,
-  },
-  timeLabel: {
-    fontSize: 12,
     color: '#999',
-    marginRight: 5,
-    width: 25,
+    fontSize: 11,
+    marginTop: 6,
   },
-  timeValue: {
-    fontSize: 14,
-    color: '#333',
-    fontWeight: '500',
-  },
-  historyStatus: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+  noPhotoBox: {
+    height: 70,
+    borderRadius: 10,
+    backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderStyle: 'dashed',
   },
-  statusIcon: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: 'bold',
+  noPhotoText: { color: '#999', fontSize: 13 },
+  branchPermsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF',
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
+  branchPermsIcon: { fontSize: 24, marginRight: 12 },
+  branchPermsText: { fontSize: 15, fontWeight: '600', color: '#1E68B8' },
+  branchPermsHint: { fontSize: 11, color: '#666', marginTop: 2 },
+  branchPermsArrow: { fontSize: 20, color: '#1E68B8', fontWeight: 'bold' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
+  modalCloseArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  zoomedImage: { width: '100%', height: '85%' },
+  modalHint: { color: '#FFF', fontSize: 12, marginTop: 10, opacity: 0.6 },
 });

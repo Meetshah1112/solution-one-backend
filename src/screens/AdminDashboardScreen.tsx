@@ -218,12 +218,20 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
     }
   };
 
-  const handlePress = (employeeId: number) => {
+  const handlePress = (employee: EmployeeWithAttendance) => {
     if (isSelectionMode) {
-      toggleSelection(employeeId);
+      toggleSelection(employee.id);
     } else {
-      // Normal tap — expand/collapse punch details
-      setExpandedEmployee(expandedEmployee === employeeId ? null : employeeId);
+      // Open the dedicated employee detail screen for the selected date
+      navigation.navigate('EmployeeDetail', {
+        user,
+        token,
+        employeeId: employee.id,
+        employeeName: employee.name,
+        employeeEmail: employee.email,
+        isActive: !!employee.is_active,
+        date: formatDateForAPI(selectedDate),
+      });
     }
   };
 
@@ -429,7 +437,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
         <View style={styles.attendanceSection}>
           {!isSelectionMode && (
             <Text style={styles.sectionTitle}>
-              Employees {isSelectionMode ? '' : '(long-press to select)'}
+              Employees {isSelectionMode ? '' : '(tap for detail · long-press to select)'}
             </Text>
           )}
 
@@ -444,105 +452,60 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
               const isActive = !!employee.is_active;
 
               return (
-                <View key={employee.id}>
-                  <TouchableOpacity
-                    style={[
-                      styles.employeeCard,
-                      isSelected && styles.employeeCardSelected,
-                      !isActive && styles.employeeCardBlocked,
-                    ]}
-                    onPress={() => handlePress(employee.id)}
-                    onLongPress={() => handleLongPress(employee.id)}
-                    activeOpacity={0.7}
-                    delayLongPress={400}
-                  >
-                    {/* Selection checkbox */}
-                    {isSelectionMode && (
-                      <View style={[
-                        styles.checkbox,
-                        isSelected && styles.checkboxSelected,
-                      ]}>
-                        {isSelected && <Text style={styles.checkboxCheck}>✓</Text>}
-                      </View>
-                    )}
-
-                    <View style={styles.employeeInfo}>
-                      <View style={styles.employeeNameRow}>
-                        <Text style={styles.employeeName}>{employee.name}</Text>
-                        {/* Active/Blocked badge */}
-                        <View style={[
-                          styles.statusBadge,
-                          isActive ? styles.activeBadge : styles.blockedBadge,
-                        ]}>
-                          <Text style={[
-                            styles.statusBadgeText,
-                            { color: isActive ? '#2E7D32' : '#C62828' },
-                          ]}>
-                            {isActive ? 'Active' : 'Blocked'}
-                          </Text>
-                        </View>
-                      </View>
-                      <Text style={styles.employeeEmail}>{employee.email}</Text>
-                    </View>
-
-                    {!isSelectionMode && (
-                      employee.hasPunches ? (
-                        <View style={styles.presentBadge}>
-                          <Text style={styles.badgeText}>
-                            {employee.punchCount} punch{employee.punchCount !== 1 ? 'es' : ''}
-                            {' '}{isExpanded ? '▲' : '▼'}
-                          </Text>
-                        </View>
-                      ) : (
-                        <View style={styles.absentBadge}>
-                          <Text style={styles.badgeText}>Absent</Text>
-                        </View>
-                      )
-                    )}
-                  </TouchableOpacity>
-
-                  {!isSelectionMode && isExpanded && (
-                    <View style={styles.punchDetailsCard}>
-                      {employee.punches && employee.punches.length > 0 && (
-                        employee.punches.map((p) => (
-                          <View key={p.index} style={styles.punchDetailRow}>
-                            <Text style={styles.punchDetailIndex}>#{p.index}</Text>
-                            <Text style={styles.punchDetailTime}>
-                              {formatTime(p.time)}
-                            </Text>
-                            {p.location ? (
-                              <TouchableOpacity
-                                style={styles.mapButton}
-                                onPress={() => openMap(p.location!)}
-                              >
-                                <Text style={styles.mapButtonText}>📍 Map</Text>
-                              </TouchableOpacity>
-                            ) : (
-                              <Text style={styles.noLocation}>No location</Text>
-                            )}
-                          </View>
-                        ))
-                      )}
-
-                      {/* Branch Permissions Button */}
-                      <TouchableOpacity
-                        style={styles.branchPermsButton}
-                        onPress={() =>
-                          navigation.navigate('BranchPermissions', {
-                            user,
-                            token,
-                            employeeId: employee.id,
-                            employeeName: employee.name,
-                          })
-                        }
-                      >
-                        <Text style={styles.branchPermsIcon}>🔐</Text>
-                        <Text style={styles.branchPermsText}>Branch Permissions</Text>
-                        <Text style={styles.branchPermsArrow}>{'>'}</Text>
-                      </TouchableOpacity>
+                <TouchableOpacity
+                  key={employee.id}
+                  style={[
+                    styles.employeeCard,
+                    isSelected && styles.employeeCardSelected,
+                    !isActive && styles.employeeCardBlocked,
+                  ]}
+                  onPress={() => handlePress(employee)}
+                  onLongPress={() => handleLongPress(employee.id)}
+                  activeOpacity={0.7}
+                  delayLongPress={400}
+                >
+                  {/* Selection checkbox */}
+                  {isSelectionMode && (
+                    <View style={[
+                      styles.checkbox,
+                      isSelected && styles.checkboxSelected,
+                    ]}>
+                      {isSelected && <Text style={styles.checkboxCheck}>✓</Text>}
                     </View>
                   )}
-                </View>
+
+                  <View style={styles.employeeInfo}>
+                    <View style={styles.employeeNameRow}>
+                      <Text style={styles.employeeName}>{employee.name}</Text>
+                      <View style={[
+                        styles.statusBadge,
+                        isActive ? styles.activeBadge : styles.blockedBadge,
+                      ]}>
+                        <Text style={[
+                          styles.statusBadgeText,
+                          { color: isActive ? '#2E7D32' : '#C62828' },
+                        ]}>
+                          {isActive ? 'Active' : 'Blocked'}
+                        </Text>
+                      </View>
+                    </View>
+                    <Text style={styles.employeeEmail}>{employee.email}</Text>
+                  </View>
+
+                  {!isSelectionMode && (
+                    employee.hasPunches ? (
+                      <View style={styles.presentBadge}>
+                        <Text style={styles.badgeText}>
+                          {employee.punchCount} punch{employee.punchCount !== 1 ? 'es' : ''} ›
+                        </Text>
+                      </View>
+                    ) : (
+                      <View style={styles.absentBadge}>
+                        <Text style={styles.badgeText}>Absent ›</Text>
+                      </View>
+                    )
+                  )}
+                </TouchableOpacity>
               );
             })
           )}

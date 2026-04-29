@@ -129,6 +129,23 @@ export const api = {
     }
   },
 
+  // Admin: detailed punches with photos for one employee on a specific date
+  getEmployeePunches: async (token: string, employeeUserId: number, date: string) => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/admin/employee/${employeeUserId}/punches?date=${date}`,
+        {
+          ...authHeaders(token),
+          // photos can push response above default 10MB
+          maxContentLength: 50 * 1024 * 1024,
+        },
+      );
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load employee punch detail');
+    }
+  },
+
   // Admin: get all units in this tenant DB
   getAdminUnits: async (token: string) => {
     try {
