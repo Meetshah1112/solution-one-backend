@@ -20,9 +20,9 @@ expo-env.d.ts
 *.mobileprovision
 
 # generated native folders
+# (android tracked so EAS uses our prebuild instead of regenerating broken one)
 
 /ios
-/android
 
 # Metro
 
