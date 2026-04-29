@@ -106,28 +106,8 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailProps> = ({
         </View>
       ) : (
         <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Stats */}
-          <View style={styles.statsBar}>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{punches.length}</Text>
-              <Text style={styles.statLabel}>Punches</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>
-                {punches.filter((p) => p.photo).length}
-              </Text>
-              <Text style={styles.statLabel}>With Photo</Text>
-            </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>
-                {punches.filter((p) => p.location).length}
-              </Text>
-              <Text style={styles.statLabel}>With Location</Text>
-            </View>
-          </View>
-
           {/* Punches */}
-          <Text style={styles.sectionTitle}>Punch Records</Text>
+          <Text style={[styles.sectionTitle, { marginTop: 18 }]}>Punch Records</Text>
 
           {punches.length === 0 ? (
             <View style={styles.emptyCard}>

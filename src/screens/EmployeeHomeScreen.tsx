@@ -123,14 +123,20 @@ export const EmployeeHomeScreen: React.FC<EmployeeHomeProps> = ({ route, navigat
       });
 
       if (photo.canceled) {
-        Alert.alert('Cancelled', 'Photo is required to confirm attendance.');
+        Alert.alert(
+          'Photo Required',
+          'A selfie is mandatory to mark attendance. You must take a photo to punch in or out.',
+        );
         setLoading(false);
         return;
       }
 
       const photoBase64 = photo.assets?.[0]?.base64;
       if (!photoBase64) {
-        Alert.alert('Error', 'Failed to capture photo. Try again.');
+        Alert.alert(
+          'Photo Failed',
+          'Could not capture the photo. Attendance cannot be recorded without a selfie. Please try again.',
+        );
         setLoading(false);
         return;
       }
