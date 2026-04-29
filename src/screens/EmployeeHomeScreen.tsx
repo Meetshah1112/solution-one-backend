@@ -14,6 +14,7 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList, Unit, Punch } from '../types';
 import { api } from '../services/api';
 
@@ -89,8 +90,9 @@ export const EmployeeHomeScreen: React.FC<EmployeeHomeProps> = ({ route, navigat
 
     setLoading(true);
     try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
+      // 1. Location permission + position
+      const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
+      if (locStatus !== 'granted') {
         Alert.alert('Permission Denied', 'Location permission is required');
         setLoading(false);
         return;
@@ -99,10 +101,48 @@ export const EmployeeHomeScreen: React.FC<EmployeeHomeProps> = ({ route, navigat
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
       });
-
       const { latitude, longitude } = location.coords;
 
-      const response = await api.punch(token, selectedUnit.id, latitude, longitude);
+      // 2. Camera permission + selfie capture (proof of presence)
+      const { status: camStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      if (camStatus !== 'granted') {
+        Alert.alert(
+          'Camera Required',
+          'Please allow camera access to take a selfie as proof of attendance.',
+        );
+        setLoading(false);
+        return;
+      }
+
+      const photo = await ImagePicker.launchCameraAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        cameraType: ImagePicker.CameraType.front,
+        allowsEditing: false,
+        quality: 0.5,        // ~50-80KB selfies after JPEG compression
+        base64: true,
+      });
+
+      if (photo.canceled) {
+        Alert.alert('Cancelled', 'Photo is required to confirm attendance.');
+        setLoading(false);
+        return;
+      }
+
+      const photoBase64 = photo.assets?.[0]?.base64;
+      if (!photoBase64) {
+        Alert.alert('Error', 'Failed to capture photo. Try again.');
+        setLoading(false);
+        return;
+      }
+
+      // 3. Submit punch with photo
+      const response = await api.punch(
+        token,
+        selectedUnit.id,
+        latitude,
+        longitude,
+        `data:image/jpeg;base64,${photoBase64}`,
+      );
 
       if (response.success) {
         Alert.alert('Success!', response.message);

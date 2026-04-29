@@ -41,13 +41,24 @@ export const api = {
     }
   },
 
-  // Record a punch
-  punch: async (token: string, unit_id: number, latitude: number, longitude: number) => {
+  // Record a punch (photo is base64 string, optional but recommended)
+  punch: async (
+    token: string,
+    unit_id: number,
+    latitude: number,
+    longitude: number,
+    photoBase64?: string,
+  ) => {
     try {
       const response = await axios.post(
         `${API_BASE_URL}/attendance/punch`,
-        { unit_id, latitude, longitude },
-        authHeaders(token),
+        { unit_id, latitude, longitude, photo: photoBase64 },
+        {
+          ...authHeaders(token),
+          // Photos can be 100KB+; allow up to 25MB body
+          maxContentLength: 25 * 1024 * 1024,
+          maxBodyLength: 25 * 1024 * 1024,
+        },
       );
       return response.data;
     } catch (error: any) {

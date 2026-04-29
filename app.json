@@ -6,7 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "jsEngine": "jsc",
+    "jsEngine": "hermes",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -33,7 +33,8 @@
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",
-        "INTERNET"
+        "INTERNET",
+        "CAMERA"
       ],
       "versionCode": 1,
       "usesCleartextTraffic": true
@@ -46,6 +47,12 @@
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "Allow Solution One to use your location for attendance check-in."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Allow Solution One to use the camera to take a selfie at punch time as proof of attendance."
         }
       ]
     ],
