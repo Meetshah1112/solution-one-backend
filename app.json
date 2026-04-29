@@ -1,0 +1,58 @@
+{
+  "expo": {
+    "name": "Solution One",
+    "slug": "solution-one",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "jsEngine": "hermes",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.solutionone.app",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        }
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.solutionone.app",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "INTERNET"
+      ],
+      "versionCode": 1,
+      "usesCleartextTraffic": true
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow Solution One to use your location for attendance check-in."
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "b5d5976b-6938-4f11-8a15-62edde75d584"
+      }
+    }
+  }
+}
