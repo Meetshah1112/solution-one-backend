@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   StatusBar,
   ScrollView,
@@ -10,12 +9,20 @@ import {
   Alert,
   RefreshControl,
   Modal,
-  Linking,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList, Unit } from '../types';
 import { api } from '../services/api';
+import {
+  palette,
+  spacing,
+  radii,
+  typography,
+  elevation,
+  KineticPressable,
+  QuietPressable,
+} from '../theme';
 
 type AdminDashboardProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'AdminDashboard'>;
@@ -43,68 +50,42 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
   route,
 }) => {
   const { user, token } = route.params;
+
+  // ─── Business logic preserved verbatim ──────────────────────────────────
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [employees, setEmployees] = useState<EmployeeWithAttendance[]>([]);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showDatePicker, setShowDatePicker] = useState(false);
 
-  // Branch filter
   const [units, setUnits] = useState<Unit[]>([]);
   const [selectedUnitId, setSelectedUnitId] = useState<number | null>(null);
   const [showUnitFilter, setShowUnitFilter] = useState(false);
 
-  // Expandable punch details
-  const [expandedEmployee, setExpandedEmployee] = useState<number | null>(null);
-
-  // Multi-select mode
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [accessUpdating, setAccessUpdating] = useState(false);
 
   const isSuperAdmin = user.role === 'SUPER_ADMIN';
 
-  const formatTime = (dateTime: string) => {
-    const date = new Date(dateTime);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true,
-    });
-  };
-
-  const openMap = (locationString: string) => {
-    Linking.openURL(
-      'https://www.google.com/maps/search/?api=1&query=' + locationString
-    );
-  };
-
-  useEffect(() => {
-    loadUnits();
-  }, []);
-
-  useEffect(() => {
-    loadEmployeeData();
-  }, [selectedDate]);
+  useEffect(() => { loadUnits(); }, []);
+  useEffect(() => { loadEmployeeData(); }, [selectedDate]);
 
   const loadUnits = async () => {
     try {
       const response = await api.getAdminUnits(token);
-      if (response.success) {
-        setUnits(response.units);
-      }
+      if (response.success) setUnits(response.units);
     } catch (error: any) {
       console.log('Failed to load units for filter');
     }
   };
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
+  const formatDate = (date: Date) =>
+    date.toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
     });
-  };
 
   const formatDateForAPI = (date: Date) => {
     const year = date.getFullYear();
@@ -118,10 +99,7 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
       setLoading(true);
       const dateStr = formatDateForAPI(selectedDate);
       const response = await api.getAdminAttendance(token, dateStr);
-
-      if (response.success) {
-        setEmployees(response.employees);
-      }
+      if (response.success) setEmployees(response.employees);
     } catch (error: any) {
       Alert.alert('Error', 'Failed to load employee data: ' + error.message);
     } finally {
@@ -142,12 +120,9 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
     ]);
   };
 
-  const isToday = () => {
-    const today = new Date();
-    return selectedDate.toDateString() === today.toDateString();
-  };
+  const isToday = () => selectedDate.toDateString() === new Date().toDateString();
 
-  // --- Calendar helpers ---
+  // ── Calendar state & helpers ────────────────────────────────────────────
   const [calendarDate, setCalendarDate] = useState(new Date(selectedDate));
   const calendarMonth = calendarDate.getMonth();
   const calendarYear = calendarDate.getFullYear();
@@ -162,10 +137,10 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
   }, [calendarMonth, calendarYear]);
 
   const monthNames = [
-    'January','February','March','April','May','June',
-    'July','August','September','October','November','December',
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December',
   ];
-  const dayHeaders = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+  const dayHeaders = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
   const navigateCalendarMonth = (direction: number) => {
     setCalendarDate(new Date(calendarYear, calendarMonth + direction, 1));
@@ -183,13 +158,8 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
     setShowDatePicker(true);
   };
 
-  // --- Branch filter logic ---
-  const filteredEmployees = useMemo(() => {
-    // Client-side filter isn't needed since backend filters,
-    // but we keep it for immediate UI response when switching branches.
-    // The real filter happens on next data reload.
-    return employees;
-  }, [employees]);
+  // ── Stats + filter ──────────────────────────────────────────────────────
+  const filteredEmployees = useMemo(() => employees, [employees]);
 
   const getAttendanceStats = () => {
     const present = filteredEmployees.filter((e) => e.hasPunches).length;
@@ -200,17 +170,16 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
   const stats = getAttendanceStats();
 
   const selectedUnitName = selectedUnitId
-    ? units.find(u => u.id === selectedUnitId)?.name || 'Unknown'
-    : 'All Branches';
+    ? units.find((u) => u.id === selectedUnitId)?.name || 'Unknown'
+    : 'All branches';
 
   const handleUnitFilterSelect = (unitId: number | null) => {
     setSelectedUnitId(unitId);
     setShowUnitFilter(false);
-    // Exit selection mode when filter changes
     exitSelectionMode();
   };
 
-  // --- Multi-select logic ---
+  // ── Multi-select handlers ───────────────────────────────────────────────
   const handleLongPress = (employeeId: number) => {
     if (!isSelectionMode) {
       setIsSelectionMode(true);
@@ -222,7 +191,6 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
     if (isSelectionMode) {
       toggleSelection(employee.id);
     } else {
-      // Open the dedicated employee detail screen for the selected date
       navigation.navigate('EmployeeDetail', {
         user,
         token,
@@ -236,16 +204,15 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
   };
 
   const toggleSelection = (employeeId: number) => {
-    setSelectedUserIds(prev =>
+    setSelectedUserIds((prev) =>
       prev.includes(employeeId)
-        ? prev.filter(id => id !== employeeId)
+        ? prev.filter((id) => id !== employeeId)
         : [...prev, employeeId]
     );
   };
 
-  const selectAll = () => {
-    setSelectedUserIds(filteredEmployees.map(e => e.id));
-  };
+  const selectAll = () =>
+    setSelectedUserIds(filteredEmployees.map((e) => e.id));
 
   const exitSelectionMode = () => {
     setIsSelectionMode(false);
@@ -267,7 +234,11 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
           onPress: async () => {
             try {
               setAccessUpdating(true);
-              const response = await api.updateEmployeeAccess(token, selectedUserIds, grantAccess);
+              const response = await api.updateEmployeeAccess(
+                token,
+                selectedUserIds,
+                grantAccess
+              );
               if (response.success) {
                 Alert.alert('Success', response.message);
                 exitSelectionMode();
@@ -284,175 +255,234 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
     );
   };
 
+  // ─── Loading state ──────────────────────────────────────────────────────
   if (loading && !refreshing) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <StatusBar barStyle="light-content" backgroundColor="#1E68B8" />
-        <ActivityIndicator size="large" color="#1E68B8" />
-        <Text style={styles.loadingText}>Loading employees...</Text>
+        <StatusBar barStyle="light-content" backgroundColor={palette.brandDeep} />
+        <ActivityIndicator size="large" color={palette.brandDeep} />
+        <Text style={styles.loadingText}>Loading employees…</Text>
       </View>
     );
   }
 
+  // ─── Presentation ───────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1E68B8" />
+      <StatusBar
+        barStyle="light-content"
+        backgroundColor={isSelectionMode ? palette.inkStrong : palette.brandDeep}
+      />
 
-      {/* Selection Mode Action Bar */}
+      {/* ╭───── Header: brand or selection-mode ─────╮ */}
       {isSelectionMode ? (
         <View style={styles.selectionBar}>
-          <TouchableOpacity onPress={exitSelectionMode} style={styles.selectionCancelBtn}>
-            <Text style={styles.selectionCancelText}>{'X'}</Text>
-          </TouchableOpacity>
+          <KineticPressable
+            onPress={exitSelectionMode}
+            style={styles.selectionCancelBtn}
+            accessibilityLabel="Exit selection mode"
+          >
+            <Text style={styles.selectionCancelText}>✕</Text>
+          </KineticPressable>
           <Text style={styles.selectionCount}>
             {selectedUserIds.length} selected
           </Text>
-          <TouchableOpacity onPress={selectAll} style={styles.selectAllBtn}>
-            <Text style={styles.selectAllText}>Select All</Text>
-          </TouchableOpacity>
+          <KineticPressable
+            onPress={selectAll}
+            style={styles.selectAllBtn}
+            accessibilityLabel="Select all employees"
+          >
+            <Text style={styles.selectAllText}>Select all</Text>
+          </KineticPressable>
         </View>
       ) : (
-        /* Normal Header */
         <View style={styles.header}>
           <View style={styles.headerLeft}>
-            <View style={styles.userIcon}>
-              <Text style={styles.userIconText}>👤</Text>
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initialsOf(user.name)}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.headerTitle}>
-                {isSuperAdmin ? 'Super Admin' : 'Admin Dashboard'}
+              <Text style={styles.headerGreeting}>
+                {isSuperAdmin ? 'Super admin' : 'Admin'}
               </Text>
-              <Text style={styles.headerSubtitle}>{user.name}</Text>
+              <Text style={styles.headerName} numberOfLines={1}>
+                {user.name}
+              </Text>
               <Text style={styles.headerTenant}>
                 {user.tenantDb === 'solution_one' ? 'Solution One' : 'CryoGas'}
               </Text>
             </View>
           </View>
-          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+          <KineticPressable
+            onPress={handleLogout}
+            style={styles.logoutButton}
+            accessibilityLabel="Logout"
+          >
             <Text style={styles.logoutText}>Logout</Text>
-          </TouchableOpacity>
+          </KineticPressable>
         </View>
       )}
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={styles.contentInner}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={palette.brandDeep}
+          />
         }
       >
-        {/* Selection Action Buttons */}
+        {/* ╭───── Selection action bar ─────╮ */}
         {isSelectionMode && (
           <View style={styles.selectionActions}>
-            <TouchableOpacity
+            <KineticPressable
               style={[styles.actionBtn, styles.grantBtn]}
               onPress={() => handleAccessUpdate(true)}
               disabled={accessUpdating || selectedUserIds.length === 0}
+              accessibilityLabel="Grant access to selected"
             >
               {accessUpdating ? (
-                <ActivityIndicator color="#FFF" size="small" />
+                <ActivityIndicator color={palette.inkInverse} size="small" />
               ) : (
-                <Text style={styles.actionBtnText}>Grant Access</Text>
+                <Text style={styles.actionBtnText}>Grant access</Text>
               )}
-            </TouchableOpacity>
-            <TouchableOpacity
+            </KineticPressable>
+            <KineticPressable
               style={[styles.actionBtn, styles.revokeBtn]}
               onPress={() => handleAccessUpdate(false)}
               disabled={accessUpdating || selectedUserIds.length === 0}
+              accessibilityLabel="Revoke access from selected"
             >
               {accessUpdating ? (
-                <ActivityIndicator color="#FFF" size="small" />
+                <ActivityIndicator color={palette.inkInverse} size="small" />
               ) : (
-                <Text style={styles.actionBtnText}>Revoke Access</Text>
+                <Text style={styles.actionBtnText}>Revoke access</Text>
               )}
-            </TouchableOpacity>
+            </KineticPressable>
           </View>
         )}
 
         {!isSelectionMode && (
           <>
-            {/* Date Selector */}
-            <TouchableOpacity style={styles.dateCard} onPress={openDatePicker}>
-              <Text style={styles.calendarIconText}>📅</Text>
-              <View style={styles.dateInfo}>
-                <Text style={styles.dateText}>{formatDate(selectedDate)}</Text>
+            {/* ╭───── Date + filter pair ─────╮
+                Side-by-side on the visual grid so they read as related controls */}
+            <View style={styles.controlsRow}>
+              <KineticPressable
+                style={styles.controlCard}
+                onPress={openDatePicker}
+                accessibilityLabel={`Selected date ${formatDate(selectedDate)}, tap to change`}
+              >
+                <Text style={styles.controlLabel}>Date</Text>
+                <Text style={styles.controlValue} numberOfLines={1}>
+                  {formatDate(selectedDate)}
+                </Text>
                 {isToday() ? (
-                  <Text style={styles.todayBadge}>Today</Text>
+                  <Text style={styles.controlBadge}>Today</Text>
                 ) : (
-                  <Text style={styles.todayLink}>Tap to change date</Text>
+                  <Text style={styles.controlHint}>Tap to change</Text>
                 )}
-              </View>
-              {!isToday() && (
-                <TouchableOpacity
-                  style={styles.todayButton}
-                  onPress={() => setSelectedDate(new Date())}
-                >
-                  <Text style={styles.todayButtonText}>Today</Text>
-                </TouchableOpacity>
-              )}
-            </TouchableOpacity>
+              </KineticPressable>
 
-            {/* Branch Filter */}
-            <TouchableOpacity
-              style={styles.filterCard}
-              onPress={() => setShowUnitFilter(true)}
-            >
-              <Text style={styles.filterIcon}>🏢</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.filterLabel}>Filter by Branch</Text>
-                <Text style={styles.filterValue}>{selectedUnitName}</Text>
-              </View>
-              <Text style={styles.filterArrow}>▼</Text>
-            </TouchableOpacity>
-
-            {/* Stats */}
-            <View style={styles.statsContainer}>
-              <View style={[styles.statCard, { borderColor: '#2196F3' }]}>
-                <Text style={styles.statNumber}>{stats.total}</Text>
-                <Text style={styles.statLabel}>Total</Text>
-              </View>
-              <View style={[styles.statCard, { borderColor: '#4CAF50' }]}>
-                <Text style={styles.statNumber}>{stats.present}</Text>
-                <Text style={styles.statLabel}>Present</Text>
-              </View>
-              <View style={[styles.statCard, { borderColor: '#D32F2F' }]}>
-                <Text style={styles.statNumber}>{stats.absent}</Text>
-                <Text style={styles.statLabel}>Absent</Text>
-              </View>
+              <KineticPressable
+                style={styles.controlCard}
+                onPress={() => setShowUnitFilter(true)}
+                accessibilityLabel={`Branch filter, currently ${selectedUnitName}`}
+              >
+                <Text style={styles.controlLabel}>Branch</Text>
+                <Text style={styles.controlValue} numberOfLines={1}>
+                  {selectedUnitName}
+                </Text>
+                <Text style={styles.controlHint}>Tap to filter</Text>
+              </KineticPressable>
             </View>
 
-            {/* Manage Units Button */}
-            <TouchableOpacity
+            {!isToday() && (
+              <KineticPressable
+                style={styles.jumpToTodayPill}
+                onPress={() => setSelectedDate(new Date())}
+                accessibilityLabel="Jump back to today"
+              >
+                <Text style={styles.jumpToTodayText}>← Back to today</Text>
+              </KineticPressable>
+            )}
+
+            {/* ╭───── Stats trio: bento-style layout ─────╮ */}
+            <View style={styles.statsRow}>
+              <StatTile label="Total" value={stats.total} accent={palette.brandDeep} />
+              <StatTile label="Present" value={stats.present} accent={palette.successDeep} />
+              <StatTile label="Absent" value={stats.absent} accent={palette.dangerDeep} />
+            </View>
+
+            {/* ╭───── Manage units button ─────╮ */}
+            <KineticPressable
               style={styles.manageUnitsButton}
               onPress={() => navigation.navigate('ManageUnits', { user, token })}
+              accessibilityLabel="Manage units"
             >
-              <Text style={styles.manageUnitsIcon}>&#9881;</Text>
-              <Text style={styles.manageUnitsText}>Manage Units</Text>
-              <Text style={styles.manageUnitsArrow}>&#8250;</Text>
-            </TouchableOpacity>
+              <View style={styles.manageUnitsIconWrap}>
+                <Text style={styles.manageUnitsIcon}>⚙</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.manageUnitsText}>Manage units</Text>
+                <Text style={styles.manageUnitsHint}>
+                  Configure branch locations & geofences
+                </Text>
+              </View>
+              <Text style={styles.manageUnitsArrow}>›</Text>
+            </KineticPressable>
+
+            {/* ╭───── Phase 2 — admin tools ─────╮
+                Approvals + reports grouped together as a single bento row */}
+            <View style={styles.adminMenuRow}>
+              <AdminMenuTile
+                label="Leave"
+                hint="Approve / reject"
+                tint={palette.brandSoft}
+                ink={palette.brandDeep}
+                onPress={() => navigation.navigate('LeaveApproval', { user, token })}
+              />
+              <AdminMenuTile
+                label="Adjust"
+                hint="Punch fixes"
+                tint={palette.warningSoft}
+                ink={palette.warningDeep}
+                onPress={() => navigation.navigate('AdjustmentApproval', { user, token })}
+              />
+              <AdminMenuTile
+                label="Reports"
+                hint="Custom layouts"
+                tint={palette.successSoft}
+                ink={palette.successDeep}
+                onPress={() => navigation.navigate('Reports', { user, token })}
+              />
+            </View>
           </>
         )}
 
-        {/* Employee List */}
+        {/* ╭───── Employee list ─────╮ */}
         <View style={styles.attendanceSection}>
           {!isSelectionMode && (
-            <Text style={styles.sectionTitle}>
-              Employees {isSelectionMode ? '' : '(tap for detail · long-press to select)'}
-            </Text>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>Employees</Text>
+              <Text style={styles.sectionHint}>tap · long-press to select</Text>
+            </View>
           )}
 
           {filteredEmployees.length === 0 ? (
             <View style={styles.emptyState}>
+              <Text style={styles.emptyGlyph}>∅</Text>
               <Text style={styles.emptyText}>No employees found</Text>
             </View>
           ) : (
             filteredEmployees.map((employee) => {
-              const isExpanded = expandedEmployee === employee.id;
               const isSelected = selectedUserIds.includes(employee.id);
               const isActive = !!employee.is_active;
 
               return (
-                <TouchableOpacity
+                <QuietPressable
                   key={employee.id}
                   style={[
                     styles.employeeCard,
@@ -461,83 +491,127 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
                   ]}
                   onPress={() => handlePress(employee)}
                   onLongPress={() => handleLongPress(employee.id)}
-                  activeOpacity={0.7}
                   delayLongPress={400}
+                  accessibilityState={{ selected: isSelected }}
+                  accessibilityLabel={`${employee.name}, ${
+                    isActive ? 'active' : 'blocked'
+                  }, ${employee.hasPunches ? employee.punchCount + ' punches' : 'absent'}`}
                 >
-                  {/* Selection checkbox */}
                   {isSelectionMode && (
-                    <View style={[
-                      styles.checkbox,
-                      isSelected && styles.checkboxSelected,
-                    ]}>
+                    <View
+                      style={[styles.checkbox, isSelected && styles.checkboxSelected]}
+                    >
                       {isSelected && <Text style={styles.checkboxCheck}>✓</Text>}
                     </View>
                   )}
 
+                  {/* Avatar bubble (consistent with header avatar language) */}
+                  <View
+                    style={[
+                      styles.empAvatar,
+                      !isActive && styles.empAvatarBlocked,
+                    ]}
+                  >
+                    <Text style={styles.empAvatarText}>
+                      {initialsOf(employee.name)}
+                    </Text>
+                  </View>
+
                   <View style={styles.employeeInfo}>
                     <View style={styles.employeeNameRow}>
-                      <Text style={styles.employeeName}>{employee.name}</Text>
-                      <View style={[
-                        styles.statusBadge,
-                        isActive ? styles.activeBadge : styles.blockedBadge,
-                      ]}>
-                        <Text style={[
-                          styles.statusBadgeText,
-                          { color: isActive ? '#2E7D32' : '#C62828' },
-                        ]}>
+                      <Text style={styles.employeeName} numberOfLines={1}>
+                        {employee.name}
+                      </Text>
+                      <View
+                        style={[
+                          styles.statusBadge,
+                          isActive ? styles.activeBadge : styles.blockedBadge,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.statusBadgeText,
+                            {
+                              color: isActive
+                                ? palette.successInk
+                                : palette.dangerInk,
+                            },
+                          ]}
+                        >
                           {isActive ? 'Active' : 'Blocked'}
                         </Text>
                       </View>
                     </View>
-                    <Text style={styles.employeeEmail}>{employee.email}</Text>
+                    <Text style={styles.employeeEmail} numberOfLines={1}>
+                      {employee.email}
+                    </Text>
                   </View>
 
                   {!isSelectionMode && (
-                    employee.hasPunches ? (
-                      <View style={styles.presentBadge}>
-                        <Text style={styles.badgeText}>
-                          {employee.punchCount} punch{employee.punchCount !== 1 ? 'es' : ''} ›
-                        </Text>
-                      </View>
-                    ) : (
-                      <View style={styles.absentBadge}>
-                        <Text style={styles.badgeText}>Absent ›</Text>
-                      </View>
-                    )
+                    <View
+                      style={
+                        employee.hasPunches ? styles.presentBadge : styles.absentBadge
+                      }
+                    >
+                      <Text
+                        style={[
+                          styles.badgeText,
+                          {
+                            color: employee.hasPunches
+                              ? palette.successInk
+                              : palette.dangerInk,
+                          },
+                        ]}
+                      >
+                        {employee.hasPunches
+                          ? `${employee.punchCount} ›`
+                          : 'Absent ›'}
+                      </Text>
+                    </View>
                   )}
-                </TouchableOpacity>
+                </QuietPressable>
               );
             })
           )}
         </View>
       </ScrollView>
 
-      {/* Calendar Modal */}
+      {/* ╭───── Calendar modal ─────╮ */}
       <Modal
         visible={showDatePicker}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => setShowDatePicker(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.modalScrim}>
           <View style={styles.calendarModal}>
-            <Text style={styles.modalTitle}>Select Date</Text>
+            <Text style={styles.modalTitle}>Select date</Text>
 
             <View style={styles.calendarNav}>
-              <TouchableOpacity onPress={() => navigateCalendarMonth(-1)}>
-                <Text style={styles.calendarNavArrow}>◀</Text>
-              </TouchableOpacity>
+              <KineticPressable
+                onPress={() => navigateCalendarMonth(-1)}
+                style={styles.calendarNavBtn}
+                accessibilityLabel="Previous month"
+              >
+                <Text style={styles.calendarNavArrow}>‹</Text>
+              </KineticPressable>
               <Text style={styles.calendarNavTitle}>
                 {monthNames[calendarMonth]} {calendarYear}
               </Text>
-              <TouchableOpacity onPress={() => navigateCalendarMonth(1)}>
-                <Text style={styles.calendarNavArrow}>▶</Text>
-              </TouchableOpacity>
+              <KineticPressable
+                onPress={() => navigateCalendarMonth(1)}
+                style={styles.calendarNavBtn}
+                accessibilityLabel="Next month"
+              >
+                <Text style={styles.calendarNavArrow}>›</Text>
+              </KineticPressable>
             </View>
 
             <View style={styles.calendarDayHeaders}>
               {dayHeaders.map((d) => (
-                <Text key={d} style={styles.calendarDayHeader}>{d}</Text>
+                <Text key={d} style={styles.calendarDayHeader}>
+                  {d}
+                </Text>
               ))}
             </View>
 
@@ -547,108 +621,124 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
                   return <View key={`empty-${index}`} style={styles.calendarDayEmpty} />;
                 }
                 const cellDate = new Date(calendarYear, calendarMonth, day);
-                const isSelected = selectedDate.toDateString() === cellDate.toDateString();
+                const isSelected =
+                  selectedDate.toDateString() === cellDate.toDateString();
                 const isFuture = cellDate > new Date();
-                const isTodayCell = new Date().toDateString() === cellDate.toDateString();
+                const isTodayCell =
+                  new Date().toDateString() === cellDate.toDateString();
 
                 return (
-                  <TouchableOpacity
+                  <QuietPressable
                     key={`day-${day}`}
-                    style={[
-                      styles.calendarDay,
-                      isSelected && styles.calendarDaySelected,
-                      isTodayCell && !isSelected && styles.calendarDayToday,
-                      isFuture && styles.calendarDayDisabled,
-                    ]}
+                    style={styles.calendarDay}
                     onPress={() => selectCalendarDay(day)}
                     disabled={isFuture}
+                    accessibilityLabel={`Day ${day}${isTodayCell ? ', today' : ''}`}
                   >
-                    <Text
+                    <View
                       style={[
-                        styles.calendarDayText,
-                        isSelected && styles.calendarDayTextSelected,
-                        isFuture && styles.calendarDayTextDisabled,
-                        isTodayCell && !isSelected && styles.calendarDayTextToday,
+                        styles.calendarDayInner,
+                        isSelected && styles.calendarDaySelected,
+                        isTodayCell && !isSelected && styles.calendarDayToday,
                       ]}
                     >
-                      {day}
-                    </Text>
-                  </TouchableOpacity>
+                      <Text
+                        style={[
+                          styles.calendarDayText,
+                          isSelected && styles.calendarDayTextSelected,
+                          isFuture && styles.calendarDayTextDisabled,
+                          isTodayCell && !isSelected && styles.calendarDayTextToday,
+                        ]}
+                      >
+                        {day}
+                      </Text>
+                    </View>
+                  </QuietPressable>
                 );
               })}
             </View>
 
             <View style={styles.quickSelectRow}>
-              <TouchableOpacity
-                style={styles.quickSelectBtn}
-                onPress={() => { setSelectedDate(new Date()); setShowDatePicker(false); }}
-              >
-                <Text style={styles.quickSelectText}>Today</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
+              <KineticPressable
                 style={styles.quickSelectBtn}
                 onPress={() => {
-                  const d = new Date(); d.setDate(d.getDate() - 1);
-                  setSelectedDate(d); setShowDatePicker(false);
+                  setSelectedDate(new Date());
+                  setShowDatePicker(false);
+                }}
+              >
+                <Text style={styles.quickSelectText}>Today</Text>
+              </KineticPressable>
+              <KineticPressable
+                style={styles.quickSelectBtn}
+                onPress={() => {
+                  const d = new Date();
+                  d.setDate(d.getDate() - 1);
+                  setSelectedDate(d);
+                  setShowDatePicker(false);
                 }}
               >
                 <Text style={styles.quickSelectText}>Yesterday</Text>
-              </TouchableOpacity>
+              </KineticPressable>
             </View>
 
-            <TouchableOpacity
+            <KineticPressable
               style={styles.calendarCloseBtn}
               onPress={() => setShowDatePicker(false)}
             >
               <Text style={styles.calendarCloseBtnText}>Close</Text>
-            </TouchableOpacity>
+            </KineticPressable>
           </View>
         </View>
       </Modal>
 
-      {/* Unit Filter Modal */}
+      {/* ╭───── Branch filter modal ─────╮ */}
       <Modal
         visible={showUnitFilter}
-        transparent={true}
-        animationType="slide"
+        transparent
+        animationType="fade"
         onRequestClose={() => setShowUnitFilter(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.modalScrim}>
           <View style={styles.calendarModal}>
-            <Text style={styles.modalTitle}>Filter by Branch</Text>
-            <ScrollView style={{ maxHeight: 400 }}>
-              {/* All Branches option */}
-              <TouchableOpacity
+            <Text style={styles.modalTitle}>Filter by branch</Text>
+            <ScrollView style={{ maxHeight: 400 }} showsVerticalScrollIndicator={false}>
+              <QuietPressable
                 style={[
                   styles.filterOption,
                   selectedUnitId === null && styles.filterOptionSelected,
                 ]}
                 onPress={() => handleUnitFilterSelect(null)}
               >
-                <Text style={styles.filterOptionText}>All Branches</Text>
-                {selectedUnitId === null && <Text style={styles.filterCheckmark}>✓</Text>}
-              </TouchableOpacity>
+                <Text style={styles.filterOptionText}>All branches</Text>
+                {selectedUnitId === null && (
+                  <Text style={styles.filterCheckmark}>✓</Text>
+                )}
+              </QuietPressable>
 
-              {units.filter(u => u.is_geofenced).map((unit) => (
-                <TouchableOpacity
-                  key={unit.id}
-                  style={[
-                    styles.filterOption,
-                    selectedUnitId === unit.id && styles.filterOptionSelected,
-                  ]}
-                  onPress={() => handleUnitFilterSelect(unit.id)}
-                >
-                  <Text style={styles.filterOptionText}>{unit.name}</Text>
-                  {selectedUnitId === unit.id && <Text style={styles.filterCheckmark}>✓</Text>}
-                </TouchableOpacity>
-              ))}
+              {units
+                .filter((u) => u.is_geofenced)
+                .map((unit) => (
+                  <QuietPressable
+                    key={unit.id}
+                    style={[
+                      styles.filterOption,
+                      selectedUnitId === unit.id && styles.filterOptionSelected,
+                    ]}
+                    onPress={() => handleUnitFilterSelect(unit.id)}
+                  >
+                    <Text style={styles.filterOptionText}>{unit.name}</Text>
+                    {selectedUnitId === unit.id && (
+                      <Text style={styles.filterCheckmark}>✓</Text>
+                    )}
+                  </QuietPressable>
+                ))}
             </ScrollView>
-            <TouchableOpacity
+            <KineticPressable
               style={styles.calendarCloseBtn}
               onPress={() => setShowUnitFilter(false)}
             >
               <Text style={styles.calendarCloseBtnText}>Close</Text>
-            </TouchableOpacity>
+            </KineticPressable>
           </View>
         </View>
       </Modal>
@@ -656,273 +746,556 @@ export const AdminDashboardScreen: React.FC<AdminDashboardProps> = ({
   );
 };
 
+// ─── Sub-components co-located for clarity ──────────────────────────────────
+const StatTile: React.FC<{ label: string; value: number; accent: string }> = ({
+  label,
+  value,
+  accent,
+}) => (
+  <View style={[styles.statTile, { borderTopColor: accent }]}>
+    <Text style={[styles.statNumber, { color: accent }]}>{value}</Text>
+    <Text style={styles.statLabel}>{label}</Text>
+  </View>
+);
+
+// Compact bento tile for admin Phase-2 modules
+const AdminMenuTile: React.FC<{
+  label: string;
+  hint: string;
+  tint: string;
+  ink: string;
+  onPress: () => void;
+}> = ({ label, hint, tint, ink, onPress }) => (
+  <KineticPressable
+    style={styles.adminMenuTile}
+    onPress={onPress}
+    accessibilityLabel={label}
+    accessibilityHint={hint}
+  >
+    <View style={[styles.adminMenuIcon, { backgroundColor: tint }]}>
+      <Text style={[styles.adminMenuGlyph, { color: ink }]}>›</Text>
+    </View>
+    <Text style={styles.adminMenuLabel}>{label}</Text>
+    <Text style={styles.adminMenuHint}>{hint}</Text>
+  </KineticPressable>
+);
+
+const initialsOf = (name: string): string => {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '·';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
-  centerContent: { justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 10, color: '#666', fontSize: 16 },
+  container: { flex: 1, backgroundColor: palette.canvas },
+  centerContent: { justifyContent: 'center', alignItems: 'center', gap: spacing.md },
+  loadingText: { ...typography.caption, color: palette.inkMuted },
 
-  // Normal header
+  // ── Header ───────────────────────────────────────────────────────────────
   header: {
-    backgroundColor: '#1E68B8', paddingTop: 50, paddingBottom: 20,
-    paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  userIcon: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: '#FFF',
-    alignItems: 'center', justifyContent: 'center', marginRight: 12,
-  },
-  userIconText: { fontSize: 20 },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#FFF' },
-  headerSubtitle: { fontSize: 12, color: '#E0E0E0', marginTop: 2 },
-  headerTenant: { fontSize: 11, color: '#B3D9FF', marginTop: 2 },
-  logoutButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12,
-    paddingVertical: 6, borderRadius: 15,
-  },
-  logoutText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
-
-  // Selection mode header
-  selectionBar: {
-    backgroundColor: '#333',
-    paddingTop: 50,
-    paddingBottom: 15,
-    paddingHorizontal: 20,
+    backgroundColor: palette.brandDeep,
+    paddingTop: 52,
+    paddingBottom: spacing.xxl,
+    paddingHorizontal: spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomLeftRadius: radii.xxl,
+    borderBottomRightRadius: radii.xxl,
+    ...elevation.level2,
+  },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: spacing.md },
+  avatar: {
+    width: 48, height: 48,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(250, 250, 248, 0.18)',
+    borderWidth: 1,
+    borderColor: 'rgba(250, 250, 248, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarText: {
+    ...typography.subtitle,
+    color: palette.inkInverse,
+    letterSpacing: 0.5,
+  },
+  headerGreeting: {
+    ...typography.caption,
+    color: 'rgba(250, 250, 248, 0.75)',
+    fontWeight: '500',
+  },
+  headerName: {
+    ...typography.title,
+    color: palette.inkInverse,
+    marginTop: 2,
+  },
+  headerTenant: {
+    ...typography.overline,
+    color: 'rgba(250, 250, 248, 0.65)',
+    marginTop: spacing.xs,
+    letterSpacing: 1.0,
+  },
+  logoutButton: {
+    backgroundColor: 'rgba(250, 250, 248, 0.14)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(250, 250, 248, 0.18)',
+  },
+  logoutText: { ...typography.button, color: palette.inkInverse },
+
+  // ── Selection bar ────────────────────────────────────────────────────────
+  selectionBar: {
+    backgroundColor: palette.inkStrong,
+    paddingTop: 52,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.xl,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    borderBottomLeftRadius: radii.xl,
+    borderBottomRightRadius: radii.xl,
+    ...elevation.level2,
   },
   selectionCancelBtn: {
-    width: 36, height: 36, borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    alignItems: 'center', justifyContent: 'center',
+    width: 40, height: 40,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(250, 250, 248, 0.14)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  selectionCancelText: { color: '#FFF', fontSize: 18, fontWeight: 'bold' },
-  selectionCount: { color: '#FFF', fontSize: 16, fontWeight: '600' },
+  selectionCancelText: {
+    color: palette.inkInverse,
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  selectionCount: {
+    ...typography.subtitle,
+    color: palette.inkInverse,
+  },
   selectAllBtn: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 14, paddingVertical: 6, borderRadius: 15,
+    backgroundColor: 'rgba(250, 250, 248, 0.14)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
   },
-  selectAllText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
+  selectAllText: { ...typography.button, color: palette.inkInverse },
 
-  // Selection action buttons
+  // ── Selection action row ─────────────────────────────────────────────────
   selectionActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 15,
-    marginTop: 10,
+    gap: spacing.md,
+    marginBottom: spacing.lg,
+    marginTop: spacing.sm,
   },
   actionBtn: {
     flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: spacing.lg,
+    borderRadius: radii.md,
     alignItems: 'center',
-    marginHorizontal: 5,
+    ...elevation.level2,
   },
-  grantBtn: { backgroundColor: '#4CAF50' },
-  revokeBtn: { backgroundColor: '#D32F2F' },
-  actionBtnText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
+  grantBtn: { backgroundColor: palette.successBase },
+  revokeBtn: { backgroundColor: palette.dangerBase },
+  actionBtnText: { ...typography.buttonLarge, color: palette.inkInverse },
 
-  content: { flex: 1, paddingHorizontal: 20, paddingTop: 20 },
+  // ── Body ─────────────────────────────────────────────────────────────────
+  content: { flex: 1 },
+  contentInner: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing['5xl'],
+  },
 
-  // Date card
-  dateCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF',
-    borderRadius: 12, padding: 15, marginBottom: 12,
-    borderWidth: 2, borderColor: '#1E68B8',
+  // ── Controls row (Date + Branch) ────────────────────────────────────────
+  controlsRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.md,
   },
-  calendarIconText: { fontSize: 24, marginRight: 12 },
-  dateInfo: { flex: 1 },
-  dateText: { fontSize: 16, fontWeight: '600', color: '#333' },
-  todayBadge: { fontSize: 11, color: '#4CAF50', fontWeight: '600', marginTop: 2 },
-  todayLink: { fontSize: 11, color: '#1E68B8', marginTop: 2 },
-  todayButton: {
-    backgroundColor: '#1E68B8', paddingHorizontal: 14,
-    paddingVertical: 6, borderRadius: 15,
+  controlCard: {
+    flex: 1,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
+    ...elevation.level1,
   },
-  todayButtonText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
+  controlLabel: {
+    ...typography.overline,
+    color: palette.inkMuted,
+    marginBottom: spacing.xs,
+  },
+  controlValue: {
+    ...typography.subtitle,
+    color: palette.inkStrong,
+  },
+  controlHint: {
+    ...typography.caption,
+    color: palette.inkMuted,
+    marginTop: 2,
+  },
+  controlBadge: {
+    ...typography.caption,
+    color: palette.successDeep,
+    fontWeight: '700',
+    marginTop: 2,
+  },
+  jumpToTodayPill: {
+    alignSelf: 'flex-start',
+    backgroundColor: palette.brandSoft,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    marginBottom: spacing.lg,
+  },
+  jumpToTodayText: {
+    ...typography.caption,
+    color: palette.brandDeep,
+    fontWeight: '700',
+  },
 
-  // Branch filter
-  filterCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF',
-    borderRadius: 12, padding: 15, marginBottom: 20,
-    borderWidth: 2, borderColor: '#FF9800',
+  // ── Stats trio ───────────────────────────────────────────────────────────
+  statsRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginBottom: spacing.xl,
   },
-  filterIcon: { fontSize: 22, marginRight: 12 },
-  filterLabel: { fontSize: 11, color: '#999', fontWeight: '500' },
-  filterValue: { fontSize: 15, color: '#333', fontWeight: '600', marginTop: 2 },
-  filterArrow: { fontSize: 12, color: '#FF9800' },
+  statTile: {
+    flex: 1,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.lg,
+    alignItems: 'center',
+    // Asymmetric top-border accent → visual hierarchy without colored borders
+    borderTopWidth: 3,
+    borderTopColor: palette.brandDeep,
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderBottomWidth: 1,
+    borderLeftColor: palette.borderHairline,
+    borderRightColor: palette.borderHairline,
+    borderBottomColor: palette.borderHairline,
+    ...elevation.level1,
+  },
+  statNumber: {
+    fontSize: 28,
+    lineHeight: 32,
+    fontWeight: '700',
+    letterSpacing: -0.4,
+  },
+  statLabel: {
+    ...typography.caption,
+    color: palette.inkMuted,
+    marginTop: spacing.xs,
+  },
 
-  // Filter modal options
-  filterOption: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: '#F5F5F5', borderRadius: 10, padding: 15, marginBottom: 8,
-  },
-  filterOptionSelected: {
-    backgroundColor: '#E3F2FD', borderWidth: 2, borderColor: '#1E68B8',
-  },
-  filterOptionText: { fontSize: 15, color: '#333', fontWeight: '500' },
-  filterCheckmark: { fontSize: 18, color: '#1E68B8', fontWeight: 'bold' },
-
-  // Modals
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center', alignItems: 'center',
-  },
-  calendarModal: {
-    backgroundColor: '#FFF', borderRadius: 20, padding: 20,
-    width: '90%', maxWidth: 380,
-  },
-  modalTitle: {
-    fontSize: 20, fontWeight: 'bold', color: '#1E68B8',
-    marginBottom: 15, textAlign: 'center',
-  },
-  calendarNav: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 15, paddingHorizontal: 10,
-  },
-  calendarNavArrow: { fontSize: 18, color: '#1E68B8', padding: 8 },
-  calendarNavTitle: { fontSize: 16, fontWeight: '600', color: '#333' },
-  calendarDayHeaders: {
-    flexDirection: 'row', justifyContent: 'space-around', marginBottom: 8,
-  },
-  calendarDayHeader: { width: 40, textAlign: 'center', fontSize: 12, fontWeight: '600', color: '#999' },
-  calendarGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'flex-start' },
-  calendarDayEmpty: { width: '14.28%', height: 40 },
-  calendarDay: { width: '14.28%', height: 40, alignItems: 'center', justifyContent: 'center' },
-  calendarDaySelected: { backgroundColor: '#1E68B8', borderRadius: 20 },
-  calendarDayToday: { borderWidth: 2, borderColor: '#1E68B8', borderRadius: 20 },
-  calendarDayDisabled: { opacity: 0.3 },
-  calendarDayText: { fontSize: 14, color: '#333' },
-  calendarDayTextSelected: { color: '#FFF', fontWeight: '600' },
-  calendarDayTextDisabled: { color: '#CCC' },
-  calendarDayTextToday: { color: '#1E68B8', fontWeight: '600' },
-  quickSelectRow: {
-    flexDirection: 'row', justifyContent: 'space-around',
-    marginTop: 15, marginBottom: 10,
-  },
-  quickSelectBtn: {
-    backgroundColor: '#E3F2FD', paddingHorizontal: 14,
-    paddingVertical: 8, borderRadius: 15,
-  },
-  quickSelectText: { color: '#1E68B8', fontSize: 12, fontWeight: '600' },
-  calendarCloseBtn: {
-    backgroundColor: '#E0E0E0', borderRadius: 10, padding: 12,
-    alignItems: 'center', marginTop: 5,
-  },
-  calendarCloseBtnText: { color: '#666', fontSize: 14, fontWeight: '600' },
-
-  // Stats
-  statsContainer: {
-    flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20,
-  },
-  statCard: {
-    flex: 1, backgroundColor: '#FFF', borderRadius: 12,
-    padding: 15, marginHorizontal: 4, alignItems: 'center', borderWidth: 2,
-  },
-  statNumber: { fontSize: 24, fontWeight: 'bold', color: '#333' },
-  statLabel: { fontSize: 11, color: '#666', marginTop: 4 },
-
-  // Manage Units
+  // ── Manage units button ──────────────────────────────────────────────────
   manageUnitsButton: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF',
-    borderRadius: 12, padding: 16, marginBottom: 20,
-    borderWidth: 2, borderColor: '#1E68B8', elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1, shadowRadius: 3,
-  },
-  manageUnitsIcon: { fontSize: 22, color: '#1E68B8', marginRight: 12 },
-  manageUnitsText: { flex: 1, fontSize: 16, fontWeight: '700', color: '#1E68B8' },
-  manageUnitsArrow: { fontSize: 22, color: '#1E68B8', fontWeight: '600' },
-
-  // Employee list
-  attendanceSection: { marginBottom: 30 },
-  sectionTitle: { fontSize: 18, fontWeight: '600', color: '#1E68B8', marginBottom: 15 },
-  emptyState: { backgroundColor: '#FFF', borderRadius: 12, padding: 40, alignItems: 'center' },
-  emptyText: { color: '#666', fontSize: 16, textAlign: 'center' },
-
-  // Employee card
-  employeeCard: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFF',
-    borderRadius: 12, padding: 15, marginBottom: 12,
-    borderWidth: 1, borderColor: '#E0E0E0',
-  },
-  employeeCardSelected: {
-    backgroundColor: '#E3F2FD',
-    borderColor: '#1E68B8',
-    borderWidth: 2,
-  },
-  employeeCardBlocked: {
-    opacity: 0.7,
-  },
-
-  // Checkbox
-  checkbox: {
-    width: 24, height: 24, borderRadius: 6,
-    borderWidth: 2, borderColor: '#999',
-    marginRight: 12, alignItems: 'center', justifyContent: 'center',
-  },
-  checkboxSelected: {
-    backgroundColor: '#1E68B8', borderColor: '#1E68B8',
-  },
-  checkboxCheck: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
-
-  employeeInfo: { flex: 1 },
-  employeeNameRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  employeeName: { fontSize: 16, fontWeight: '600', color: '#1E68B8', marginRight: 8 },
-  employeeEmail: { fontSize: 12, color: '#666' },
-
-  // Active/Blocked status badge
-  statusBadge: {
-    paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8,
-  },
-  activeBadge: { backgroundColor: '#E8F5E9' },
-  blockedBadge: { backgroundColor: '#FFEBEE' },
-  statusBadgeText: { fontSize: 10, fontWeight: '700' },
-
-  // Attendance badges
-  presentBadge: {
-    backgroundColor: '#4CAF50', paddingHorizontal: 12,
-    paddingVertical: 6, borderRadius: 12,
-  },
-  absentBadge: {
-    backgroundColor: '#D32F2F', paddingHorizontal: 12,
-    paddingVertical: 6, borderRadius: 12,
-  },
-  badgeText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
-
-  // Punch details
-  punchDetailsCard: {
-    backgroundColor: '#F8F9FA', borderRadius: 10,
-    marginTop: -8, marginBottom: 12, marginHorizontal: 4,
-    padding: 12, borderWidth: 1, borderColor: '#E0E0E0',
-    borderTopWidth: 0, borderTopLeftRadius: 0, borderTopRightRadius: 0,
-  },
-  punchDetailRow: {
-    flexDirection: 'row', alignItems: 'center',
-    paddingVertical: 6, borderBottomWidth: 1, borderBottomColor: '#EEEEEE',
-  },
-  punchDetailIndex: { fontSize: 13, fontWeight: '600', color: '#1E68B8', width: 30 },
-  punchDetailTime: { fontSize: 13, color: '#333', flex: 1 },
-  mapButton: {
-    backgroundColor: '#1E68B8', paddingHorizontal: 10,
-    paddingVertical: 5, borderRadius: 8,
-  },
-  mapButtonText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
-  noLocation: { fontSize: 11, color: '#999', fontStyle: 'italic' },
-
-  // Branch permissions button inside expanded card
-  branchPermsButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 10,
-    borderWidth: 2,
-    borderColor: '#1E68B8',
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    gap: spacing.md,
+    marginBottom: spacing.xxl,
+    borderWidth: 1,
+    borderColor: palette.brandSoftBorder,
+    ...elevation.level2,
   },
-  branchPermsIcon: { fontSize: 18, marginRight: 10 },
-  branchPermsText: { flex: 1, fontSize: 14, fontWeight: '600', color: '#1E68B8' },
-  branchPermsArrow: { fontSize: 16, color: '#1E68B8', fontWeight: 'bold' },
+  manageUnitsIconWrap: {
+    width: 44, height: 44,
+    borderRadius: radii.md,
+    backgroundColor: palette.brandSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  manageUnitsIcon: { fontSize: 22, color: palette.brandDeep },
+  manageUnitsText: { ...typography.subtitle, color: palette.inkStrong },
+  manageUnitsHint: { ...typography.caption, color: palette.inkMuted, marginTop: 2 },
+  manageUnitsArrow: { fontSize: 22, color: palette.brandDeep, fontWeight: '600' },
+
+  // ── Employee list ────────────────────────────────────────────────────────
+  attendanceSection: { marginBottom: spacing.xxl },
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: spacing.md,
+  },
+  sectionLabel: {
+    ...typography.overline,
+    color: palette.inkMuted,
+  },
+  sectionHint: {
+    ...typography.caption,
+    color: palette.inkSoft,
+  },
+  emptyState: {
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    padding: spacing['3xl'],
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
+  },
+  emptyGlyph: { fontSize: 36, color: palette.inkSoft },
+  emptyText: { ...typography.body, color: palette.inkMuted },
+
+  // ── Employee card ────────────────────────────────────────────────────────
+  employeeCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    gap: spacing.md,
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
+    ...elevation.level1,
+  },
+  employeeCardSelected: {
+    backgroundColor: palette.brandSoft,
+    borderColor: palette.brandDeep,
+    borderWidth: 1.5,
+  },
+  employeeCardBlocked: { opacity: 0.65 },
+
+  checkbox: {
+    width: 22, height: 22,
+    borderRadius: radii.xs,
+    borderWidth: 1.5,
+    borderColor: palette.inkMuted,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  checkboxSelected: {
+    backgroundColor: palette.brandDeep,
+    borderColor: palette.brandDeep,
+  },
+  checkboxCheck: { color: palette.inkInverse, fontSize: 14, fontWeight: '700' },
+
+  // Avatar in row — slightly smaller than header avatar for hierarchy
+  empAvatar: {
+    width: 40, height: 40,
+    borderRadius: radii.pill,
+    backgroundColor: palette.brandSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  empAvatarBlocked: {
+    backgroundColor: palette.canvasAlt,
+  },
+  empAvatarText: {
+    ...typography.bodyEmphasis,
+    color: palette.brandDeep,
+  },
+
+  employeeInfo: { flex: 1, gap: 2 },
+  employeeNameRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  employeeName: {
+    ...typography.bodyEmphasis,
+    color: palette.inkStrong,
+    flexShrink: 1,
+  },
+  employeeEmail: { ...typography.caption, color: palette.inkMuted },
+
+  statusBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
+  },
+  activeBadge: { backgroundColor: palette.successSoft },
+  blockedBadge: { backgroundColor: palette.dangerSoft },
+  statusBadgeText: { ...typography.overline, letterSpacing: 0.6 },
+
+  presentBadge: {
+    backgroundColor: palette.successSoft,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+  },
+  absentBadge: {
+    backgroundColor: palette.dangerSoft,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+  },
+  badgeText: { ...typography.caption, fontWeight: '700' },
+
+  // ── Modals ───────────────────────────────────────────────────────────────
+  modalScrim: {
+    flex: 1,
+    backgroundColor: palette.scrim,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  calendarModal: {
+    backgroundColor: palette.surfaceElevated,
+    borderRadius: radii.xl,
+    padding: spacing.xl,
+    width: '100%',
+    maxWidth: 380,
+    ...elevation.level4,
+  },
+  modalTitle: {
+    ...typography.title,
+    color: palette.inkStrong,
+    marginBottom: spacing.lg,
+    textAlign: 'center',
+  },
+  calendarNav: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  calendarNavBtn: {
+    width: 36, height: 36,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.canvasAlt,
+  },
+  calendarNavArrow: {
+    fontSize: 22,
+    color: palette.brandDeep,
+    lineHeight: 22,
+    fontWeight: '700',
+  },
+  calendarNavTitle: {
+    ...typography.subtitle,
+    color: palette.inkStrong,
+  },
+  calendarDayHeaders: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: spacing.sm,
+  },
+  calendarDayHeader: {
+    width: '14.28%',
+    textAlign: 'center',
+    ...typography.overline,
+    color: palette.inkSoft,
+    letterSpacing: 0.4,
+  },
+  calendarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  calendarDayEmpty: { width: '14.28%', height: 40 },
+  calendarDay: {
+    width: '14.28%',
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarDayInner: {
+    width: 36, height: 36,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  calendarDaySelected: {
+    backgroundColor: palette.brandDeep,
+  },
+  calendarDayToday: {
+    borderWidth: 1.5,
+    borderColor: palette.brandDeep,
+  },
+  calendarDayText: { ...typography.body, color: palette.inkStrong },
+  calendarDayTextSelected: { color: palette.inkInverse, fontWeight: '700' },
+  calendarDayTextDisabled: { color: palette.inkSoft, opacity: 0.4 },
+  calendarDayTextToday: { color: palette.brandDeep, fontWeight: '700' },
+
+  quickSelectRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+    marginBottom: spacing.md,
+  },
+  quickSelectBtn: {
+    backgroundColor: palette.brandSoft,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+  },
+  quickSelectText: {
+    ...typography.button,
+    color: palette.brandDeep,
+  },
+
+  calendarCloseBtn: {
+    backgroundColor: palette.canvasAlt,
+    borderRadius: radii.md,
+    paddingVertical: spacing.md,
+    alignItems: 'center',
+    marginTop: spacing.sm,
+  },
+  calendarCloseBtnText: { ...typography.button, color: palette.inkBase },
+
+  filterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: palette.surface,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
+  },
+  filterOptionSelected: {
+    backgroundColor: palette.brandSoft,
+    borderColor: palette.brandDeep,
+    borderWidth: 1.5,
+  },
+  filterOptionText: { ...typography.body, color: palette.inkStrong },
+  filterCheckmark: { fontSize: 18, color: palette.brandDeep, fontWeight: '700' },
+
+  // ── Phase 2 admin tile row ───────────────────────────────────────────────
+  adminMenuRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.xxl,
+  },
+  adminMenuTile: {
+    flex: 1,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
+    ...elevation.level1,
+  },
+  adminMenuIcon: {
+    width: 36, height: 36,
+    borderRadius: radii.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  adminMenuGlyph: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginTop: -2,
+  },
+  adminMenuLabel: {
+    ...typography.bodyEmphasis,
+    color: palette.inkStrong,
+  },
+  adminMenuHint: {
+    ...typography.caption,
+    color: palette.inkMuted,
+    marginTop: 2,
+  },
 });

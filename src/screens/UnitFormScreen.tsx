@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   StatusBar,
   ScrollView,
@@ -19,6 +18,14 @@ import { RouteProp } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { RootStackParamList } from '../types';
 import { api } from '../services/api';
+import {
+  palette,
+  spacing,
+  radii,
+  typography,
+  elevation,
+  KineticPressable,
+} from '../theme';
 
 type UnitFormProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'UnitForm'>;
@@ -29,7 +36,7 @@ export const UnitFormScreen: React.FC<UnitFormProps> = ({ navigation, route }) =
   const { user, token, unit } = route.params;
   const isEditing = !!unit;
 
-  // Form state
+  // ─── Logic preserved verbatim ────────────────────────────────────────────
   const [name, setName] = useState(unit?.name || '');
   const [latitude, setLatitude] = useState(
     unit?.latitude != null ? String(unit.latitude) : ''
@@ -41,16 +48,16 @@ export const UnitFormScreen: React.FC<UnitFormProps> = ({ navigation, route }) =
     unit ? !!unit.is_geofenced : true
   );
 
-  // UI state
   const [fetchingGPS, setFetchingGPS] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  // Re-auth modal state
   const [showReAuthModal, setShowReAuthModal] = useState(false);
   const [password, setPassword] = useState('');
   const [verifying, setVerifying] = useState(false);
 
-  // ---- GPS: Set to Current Location ----
+  // Purely-visual focus tracking → branded focus ring on inputs (a11y win)
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+
   const handleSetCurrentLocation = async () => {
     setFetchingGPS(true);
     try {
@@ -74,7 +81,6 @@ export const UnitFormScreen: React.FC<UnitFormProps> = ({ navigation, route }) =
     }
   };
 
-  // ---- Validate form before showing re-auth ----
   const handleSavePress = () => {
     if (!name.trim()) {
       Alert.alert('Validation', 'Unit name is required.');
@@ -89,12 +95,10 @@ export const UnitFormScreen: React.FC<UnitFormProps> = ({ navigation, route }) =
       return;
     }
 
-    // Open re-authentication modal
     setPassword('');
     setShowReAuthModal(true);
   };
 
-  // ---- Re-auth then save ----
   const handleConfirmSave = async () => {
     if (!password.trim()) {
       Alert.alert('Required', 'Please enter your password.');
@@ -103,10 +107,8 @@ export const UnitFormScreen: React.FC<UnitFormProps> = ({ navigation, route }) =
 
     setVerifying(true);
     try {
-      // Step 1: Re-verify password
       await api.reverifyPassword(token, password);
 
-      // Step 2: Create or update unit
       setSaving(true);
       setShowReAuthModal(false);
 
@@ -125,7 +127,7 @@ export const UnitFormScreen: React.FC<UnitFormProps> = ({ navigation, route }) =
       }
 
       if (response.success) {
-        Alert.alert('Success', response.message, [
+        Alert.alert('Saved', response.message, [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
       }
@@ -140,17 +142,21 @@ export const UnitFormScreen: React.FC<UnitFormProps> = ({ navigation, route }) =
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1E68B8" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.brandDeep} />
 
-      {/* Header */}
+      {/* ╭───── Header ─────╮ */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Text style={styles.backText}>{'< Back'}</Text>
-        </TouchableOpacity>
+        <KineticPressable
+          onPress={() => navigation.goBack()}
+          style={styles.backButton}
+          accessibilityLabel="Go back"
+        >
+          <Text style={styles.backIcon}>←</Text>
+        </KineticPressable>
         <Text style={styles.headerTitle}>
-          {isEditing ? 'Edit Unit' : 'Add New Unit'}
+          {isEditing ? 'Edit unit' : 'New unit'}
         </Text>
-        <View style={{ width: 60 }} />
+        <View style={styles.headerSpacer} />
       </View>
 
       <KeyboardAvoidingView
@@ -159,134 +165,181 @@ export const UnitFormScreen: React.FC<UnitFormProps> = ({ navigation, route }) =
       >
         <ScrollView
           style={styles.content}
+          contentContainerStyle={styles.contentInner}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Unit Name */}
-          <Text style={styles.label}>Unit Name</Text>
-          <TextInput
-            style={styles.input}
-            value={name}
-            onChangeText={setName}
-            placeholder="e.g. Branch A, Work From Home"
-            placeholderTextColor="#AAA"
-          />
+          {/* ╭───── Unit name ─────╮ */}
+          <Field label="Unit name">
+            <TextInput
+              style={[
+                styles.input,
+                focusedField === 'name' && styles.inputFocused,
+              ]}
+              value={name}
+              onChangeText={setName}
+              placeholder="e.g. Mumbai Branch"
+              placeholderTextColor={palette.inkSoft}
+              onFocus={() => setFocusedField('name')}
+              onBlur={() => setFocusedField(null)}
+              accessibilityLabel="Unit name"
+            />
+          </Field>
 
-          {/* GPS Button */}
-          <TouchableOpacity
+          {/* ╭───── GPS auto-fill button ─────╮ */}
+          <KineticPressable
             style={styles.gpsButton}
             onPress={handleSetCurrentLocation}
             disabled={fetchingGPS}
+            accessibilityLabel="Use current location"
           >
             {fetchingGPS ? (
-              <ActivityIndicator color="#FFF" size="small" />
+              <ActivityIndicator color={palette.inkInverse} size="small" />
             ) : (
               <>
-                <Text style={styles.gpsIcon}>📍</Text>
-                <Text style={styles.gpsText}>Set to Current Location</Text>
+                <View style={styles.gpsIconWrap}>
+                  <Text style={styles.gpsIcon}>⌖</Text>
+                </View>
+                <Text style={styles.gpsText}>Use my current location</Text>
               </>
             )}
-          </TouchableOpacity>
+          </KineticPressable>
 
-          {/* Latitude */}
-          <Text style={styles.label}>Latitude</Text>
-          <TextInput
-            style={styles.input}
-            value={latitude}
-            onChangeText={setLatitude}
-            placeholder="e.g. 28.7041"
-            placeholderTextColor="#AAA"
-            keyboardType="numeric"
-          />
+          <Text style={styles.orDivider}>or enter manually</Text>
 
-          {/* Longitude */}
-          <Text style={styles.label}>Longitude</Text>
-          <TextInput
-            style={styles.input}
-            value={longitude}
-            onChangeText={setLongitude}
-            placeholder="e.g. 77.1025"
-            placeholderTextColor="#AAA"
-            keyboardType="numeric"
-          />
+          {/* ╭───── Lat / Lng pair (side-by-side on the 8px grid) ─────╮ */}
+          <View style={styles.coordsRow}>
+            <Field label="Latitude" style={styles.coordsField}>
+              <TextInput
+                style={[
+                  styles.input,
+                  focusedField === 'lat' && styles.inputFocused,
+                ]}
+                value={latitude}
+                onChangeText={setLatitude}
+                placeholder="28.7041"
+                placeholderTextColor={palette.inkSoft}
+                keyboardType="decimal-pad"
+                onFocus={() => setFocusedField('lat')}
+                onBlur={() => setFocusedField(null)}
+                accessibilityLabel="Latitude"
+              />
+            </Field>
+            <Field label="Longitude" style={styles.coordsField}>
+              <TextInput
+                style={[
+                  styles.input,
+                  focusedField === 'lng' && styles.inputFocused,
+                ]}
+                value={longitude}
+                onChangeText={setLongitude}
+                placeholder="77.1025"
+                placeholderTextColor={palette.inkSoft}
+                keyboardType="decimal-pad"
+                onFocus={() => setFocusedField('lng')}
+                onBlur={() => setFocusedField(null)}
+                accessibilityLabel="Longitude"
+              />
+            </Field>
+          </View>
 
-          {/* Is Geofenced Toggle */}
-          <View style={styles.toggleRow}>
+          {/* ╭───── Geofence toggle ─────╮ */}
+          <View style={styles.toggleCard}>
             <View style={styles.toggleInfo}>
-              <Text style={styles.toggleLabel}>Is Geofenced?</Text>
+              <Text style={styles.toggleLabel}>Geofencing</Text>
               <Text style={styles.toggleHint}>
                 {isGeofenced
-                  ? 'Employees must be within 50m to punch'
-                  : 'No distance check (WFH / Field Work)'}
+                  ? 'Employees must be within 50 m of these coords to punch.'
+                  : 'No distance check — suitable for WFH / field work.'}
               </Text>
             </View>
             <Switch
               value={isGeofenced}
               onValueChange={setIsGeofenced}
-              trackColor={{ false: '#DDD', true: '#81C784' }}
-              thumbColor={isGeofenced ? '#4CAF50' : '#999'}
+              trackColor={{
+                false: palette.canvasAlt,
+                true: palette.successSoft,
+              }}
+              thumbColor={isGeofenced ? palette.successBase : palette.inkSoft}
+              ios_backgroundColor={palette.canvasAlt}
+              accessibilityLabel="Toggle geofencing"
             />
           </View>
 
-          {/* Save Button */}
-          <TouchableOpacity
+          {/* ╭───── Save button ─────╮ */}
+          <KineticPressable
             style={[styles.saveButton, saving && styles.saveButtonDisabled]}
             onPress={handleSavePress}
             disabled={saving}
+            accessibilityLabel={isEditing ? 'Update unit' : 'Create unit'}
           >
             {saving ? (
-              <ActivityIndicator color="#FFF" size="small" />
+              <ActivityIndicator color={palette.inkInverse} />
             ) : (
               <Text style={styles.saveButtonText}>
-                {isEditing ? 'Update Unit' : 'Create Unit'}
+                {isEditing ? 'Update unit' : 'Create unit'}
               </Text>
             )}
-          </TouchableOpacity>
+          </KineticPressable>
 
-          <View style={{ height: 40 }} />
+          <View style={{ height: spacing['4xl'] }} />
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Re-Authentication Modal */}
+      {/* ╭───── Re-auth modal ─────╮ */}
       <Modal
         visible={showReAuthModal}
-        transparent={true}
+        transparent
         animationType="fade"
         onRequestClose={() => {
           if (!verifying) setShowReAuthModal(false);
         }}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Confirm Your Identity</Text>
+        <View style={styles.modalScrim}>
+          <View style={styles.modalCard}>
+            <View style={styles.modalIconWrap}>
+              <Text style={styles.modalIcon}>⚷</Text>
+            </View>
+            <Text style={styles.modalTitle}>Confirm identity</Text>
             <Text style={styles.modalSubtitle}>
-              Please re-enter your password to {isEditing ? 'update' : 'create'} this unit.
+              Re-enter your password to{' '}
+              {isEditing ? 'update' : 'create'} this unit.
             </Text>
 
             <TextInput
-              style={styles.modalInput}
+              style={[
+                styles.input,
+                styles.modalInput,
+                focusedField === 'reauth' && styles.inputFocused,
+              ]}
               value={password}
               onChangeText={setPassword}
-              placeholder="Enter your password"
-              placeholderTextColor="#AAA"
+              placeholder="Your password"
+              placeholderTextColor={palette.inkSoft}
               secureTextEntry
               autoFocus
               editable={!verifying}
+              onFocus={() => setFocusedField('reauth')}
+              onBlur={() => setFocusedField(null)}
+              accessibilityLabel="Re-enter password"
             />
 
-            <TouchableOpacity
-              style={[styles.modalConfirmButton, verifying && styles.saveButtonDisabled]}
+            <KineticPressable
+              style={[
+                styles.modalConfirmButton,
+                verifying && styles.saveButtonDisabled,
+              ]}
               onPress={handleConfirmSave}
               disabled={verifying}
             >
               {verifying ? (
-                <ActivityIndicator color="#FFF" size="small" />
+                <ActivityIndicator color={palette.inkInverse} size="small" />
               ) : (
-                <Text style={styles.modalConfirmText}>Verify & Save</Text>
+                <Text style={styles.modalConfirmText}>Verify & save</Text>
               )}
-            </TouchableOpacity>
+            </KineticPressable>
 
-            <TouchableOpacity
+            <KineticPressable
               style={styles.modalCancelButton}
               onPress={() => {
                 if (!verifying) {
@@ -297,7 +350,7 @@ export const UnitFormScreen: React.FC<UnitFormProps> = ({ navigation, route }) =
               disabled={verifying}
             >
               <Text style={styles.modalCancelText}>Cancel</Text>
-            </TouchableOpacity>
+            </KineticPressable>
           </View>
         </View>
       </Modal>
@@ -305,166 +358,240 @@ export const UnitFormScreen: React.FC<UnitFormProps> = ({ navigation, route }) =
   );
 };
 
+/* Field — co-located atom for label + input pairs */
+const Field: React.FC<{
+  label: string;
+  children: React.ReactNode;
+  style?: any;
+}> = ({ label, children, style }) => (
+  <View style={[styles.fieldWrapper, style]}>
+    <Text style={styles.fieldLabel}>{label}</Text>
+    {children}
+  </View>
+);
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
+  container: { flex: 1, backgroundColor: palette.canvas },
+
+  // ── Header ───────────────────────────────────────────────────────────────
   header: {
-    backgroundColor: '#1E68B8',
-    paddingTop: 50,
-    paddingBottom: 18,
-    paddingHorizontal: 20,
+    backgroundColor: palette.brandDeep,
+    paddingTop: 52,
+    paddingBottom: spacing.lg,
+    paddingHorizontal: spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderBottomLeftRadius: radii.xxl,
+    borderBottomRightRadius: radii.xxl,
+    ...elevation.level2,
   },
-  backButton: { paddingVertical: 4, paddingRight: 10 },
-  backText: { color: '#FFF', fontSize: 15, fontWeight: '600' },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#FFF' },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 25,
-  },
-  label: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
-    marginTop: 16,
-  },
-  input: {
-    backgroundColor: '#FFF',
-    borderRadius: 10,
+  backButton: {
+    width: 44, height: 44,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(250, 250, 248, 0.16)',
     borderWidth: 1,
-    borderColor: '#DDD',
-    paddingHorizontal: 15,
-    paddingVertical: 13,
-    fontSize: 15,
-    color: '#333',
+    borderColor: 'rgba(250, 250, 248, 0.20)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
+  backIcon: {
+    fontSize: 22,
+    color: palette.inkInverse,
+    fontWeight: '600',
+    marginLeft: -1,
+  },
+  headerTitle: {
+    ...typography.title,
+    color: palette.inkInverse,
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerSpacer: { width: 44 },
+
+  // ── Body ─────────────────────────────────────────────────────────────────
+  content: { flex: 1 },
+  contentInner: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xl,
+  },
+
+  // ── Field wrapper + label ────────────────────────────────────────────────
+  fieldWrapper: {
+    marginBottom: spacing.lg,
+  },
+  fieldLabel: {
+    ...typography.caption,
+    color: palette.inkMuted,
+    marginBottom: spacing.sm,
+    letterSpacing: 0.3,
+  },
+
+  // ── Inputs (sunken wells with branded focus rings) ───────────────────────
+  input: {
+    backgroundColor: palette.surfaceSunken,
+    borderRadius: radii.md,
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    ...typography.bodyLarge,
+    color: palette.inkStrong,
+  },
+  inputFocused: {
+    borderColor: palette.brandDeep,
+    borderWidth: 2,
+    backgroundColor: palette.surface,
+  },
+
+  // ── GPS button ───────────────────────────────────────────────────────────
   gpsButton: {
-    backgroundColor: '#1E68B8',
-    borderRadius: 12,
-    padding: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 20,
-    marginBottom: 5,
-    elevation: 3,
-    shadowColor: '#1E68B8',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    gap: spacing.sm,
+    backgroundColor: palette.brandDeep,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    ...elevation.level2,
+    marginBottom: spacing.md,
+  },
+  gpsIconWrap: {
+    width: 28, height: 28,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(250, 250, 248, 0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   gpsIcon: {
-    fontSize: 20,
-    marginRight: 10,
+    fontSize: 16,
+    color: palette.inkInverse,
   },
   gpsText: {
-    fontSize: 16,
-    color: '#FFF',
-    fontWeight: '700',
+    ...typography.buttonLarge,
+    color: palette.inkInverse,
   },
-  toggleRow: {
+  orDivider: {
+    ...typography.overline,
+    color: palette.inkSoft,
+    textAlign: 'center',
+    marginBottom: spacing.md,
+    letterSpacing: 1.2,
+  },
+
+  // ── Coordinates pair ─────────────────────────────────────────────────────
+  coordsRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+  },
+  coordsField: {
+    flex: 1,
+  },
+
+  // ── Toggle card ──────────────────────────────────────────────────────────
+  toggleCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 20,
+    gap: spacing.lg,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.xl,
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: palette.borderHairline,
+    ...elevation.level1,
   },
-  toggleInfo: { flex: 1, marginRight: 10 },
+  toggleInfo: { flex: 1, gap: 2 },
   toggleLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#333',
+    ...typography.subtitle,
+    color: palette.inkStrong,
   },
   toggleHint: {
-    fontSize: 12,
-    color: '#888',
-    marginTop: 3,
+    ...typography.caption,
+    color: palette.inkMuted,
   },
+
+  // ── Save button ──────────────────────────────────────────────────────────
   saveButton: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 12,
-    padding: 18,
+    backgroundColor: palette.successBase,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.lg,
     alignItems: 'center',
-    marginTop: 30,
-    elevation: 3,
-    shadowColor: '#4CAF50',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
-    shadowRadius: 4,
+    marginTop: spacing.sm,
+    ...elevation.level3,
   },
-  saveButtonDisabled: {
-    opacity: 0.6,
-  },
-  saveButtonText: {
-    fontSize: 17,
-    color: '#FFF',
-    fontWeight: '700',
-  },
-  // Re-Auth Modal
-  modalOverlay: {
+  saveButtonDisabled: { opacity: 0.55 },
+  saveButtonText: { ...typography.buttonLarge, color: palette.inkInverse },
+
+  // ── Re-auth modal ────────────────────────────────────────────────────────
+  modalScrim: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: palette.scrim,
     justifyContent: 'center',
     alignItems: 'center',
+    padding: spacing.xl,
   },
-  modalContent: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 25,
-    width: '85%',
+  modalCard: {
+    backgroundColor: palette.surfaceElevated,
+    borderRadius: radii.xl,
+    padding: spacing.xl,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+    ...elevation.level4,
+  },
+  modalIconWrap: {
+    width: 56, height: 56,
+    borderRadius: radii.pill,
+    backgroundColor: palette.brandSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  modalIcon: {
+    fontSize: 26,
+    color: palette.brandDeep,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E68B8',
+    ...typography.headline,
+    color: palette.inkStrong,
+    marginBottom: spacing.xs,
     textAlign: 'center',
-    marginBottom: 8,
   },
   modalSubtitle: {
-    fontSize: 13,
-    color: '#666',
+    ...typography.body,
+    color: palette.inkMuted,
     textAlign: 'center',
-    marginBottom: 20,
-    lineHeight: 18,
+    marginBottom: spacing.lg,
   },
   modalInput: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#DDD',
-    paddingHorizontal: 15,
-    paddingVertical: 13,
-    fontSize: 15,
-    color: '#333',
-    marginBottom: 16,
+    width: '100%',
+    marginBottom: spacing.md,
   },
   modalConfirmButton: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 10,
-    padding: 15,
+    width: '100%',
+    backgroundColor: palette.successBase,
+    borderRadius: radii.md,
+    paddingVertical: spacing.md,
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: spacing.sm,
+    ...elevation.level2,
   },
   modalConfirmText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '700',
+    ...typography.buttonLarge,
+    color: palette.inkInverse,
   },
   modalCancelButton: {
-    backgroundColor: '#E0E0E0',
-    borderRadius: 10,
-    padding: 13,
+    width: '100%',
+    backgroundColor: palette.canvasAlt,
+    borderRadius: radii.md,
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
   modalCancelText: {
-    color: '#666',
-    fontSize: 14,
-    fontWeight: '600',
+    ...typography.button,
+    color: palette.inkBase,
   },
 });

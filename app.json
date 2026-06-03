@@ -54,7 +54,8 @@
         {
           "cameraPermission": "Allow Solution One to use the camera to take a selfie at punch time as proof of attendance."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "extra": {
       "eas": {

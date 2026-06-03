@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   StatusBar,
   ScrollView,
@@ -14,11 +13,22 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types';
 import { api } from '../services/api';
+import {
+  palette,
+  spacing,
+  radii,
+  typography,
+  elevation,
+  KineticPressable,
+} from '../theme';
 
 type AttendanceHistoryProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'AttendanceHistory'>;
   route: RouteProp<RootStackParamList, 'AttendanceHistory'>;
 };
+
+// Single source of truth for the day-range chips — easier to extend later
+const DAY_FILTERS = [7, 15, 30, 60, 90] as const;
 
 export const AttendanceHistoryScreen: React.FC<AttendanceHistoryProps> = ({
   navigation,
@@ -28,20 +38,15 @@ export const AttendanceHistoryScreen: React.FC<AttendanceHistoryProps> = ({
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [records, setRecords] = useState<any[]>([]);
-  const [daysFilter, setDaysFilter] = useState(30);
+  const [daysFilter, setDaysFilter] = useState<number>(30);
 
-  useEffect(() => {
-    loadHistory();
-  }, [daysFilter]);
+  useEffect(() => { loadHistory(); }, [daysFilter]);
 
   const loadHistory = async () => {
     try {
       setLoading(true);
       const response = await api.getAttendanceHistory(token, daysFilter);
-
-      if (response.success) {
-        setRecords(response.records);
-      }
+      if (response.success) setRecords(response.records);
     } catch (error: any) {
       Alert.alert('Error', 'Failed to load attendance history: ' + error.message);
     } finally {
@@ -78,261 +83,304 @@ export const AttendanceHistoryScreen: React.FC<AttendanceHistoryProps> = ({
   if (loading && !refreshing) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <StatusBar barStyle="light-content" backgroundColor="#1E68B8" />
-        <ActivityIndicator size="large" color="#1E68B8" />
-        <Text style={styles.loadingText}>Loading attendance history...</Text>
+        <StatusBar barStyle="light-content" backgroundColor={palette.brandDeep} />
+        <ActivityIndicator size="large" color={palette.brandDeep} />
+        <Text style={styles.loadingText}>Loading history…</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1E68B8" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.brandDeep} />
 
-      {/* Header */}
+      {/* ╭───── Header with back arrow ─────╮ */}
       <View style={styles.header}>
-        <TouchableOpacity
+        <KineticPressable
           style={styles.backButton}
           onPress={() => navigation.goBack()}
+          accessibilityLabel="Go back"
         >
           <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
+        </KineticPressable>
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>My Attendance</Text>
+          <Text style={styles.headerTitle}>My attendance</Text>
           <Text style={styles.headerSubtitle}>{user.name}</Text>
         </View>
       </View>
 
       <ScrollView
         style={styles.content}
+        contentContainerStyle={styles.contentInner}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            tintColor={palette.brandDeep}
+          />
         }
       >
-        {/* Filter */}
+        {/* ╭───── Filter chip row ─────╮
+            Pill-shaped chips with a subtle "selected" state — no thick borders */}
         <View style={styles.filterRow}>
-          {[7, 15, 30, 60, 90].map((days) => (
-            <TouchableOpacity
-              key={days}
-              style={[
-                styles.filterButton,
-                daysFilter === days && styles.filterButtonActive,
-              ]}
-              onPress={() => setDaysFilter(days)}
-            >
-              <Text
-                style={[
-                  styles.filterText,
-                  daysFilter === days && styles.filterTextActive,
-                ]}
+          {DAY_FILTERS.map((days) => {
+            const isActive = daysFilter === days;
+            return (
+              <KineticPressable
+                key={days}
+                style={[styles.filterChip, isActive && styles.filterChipActive]}
+                onPress={() => setDaysFilter(days)}
+                accessibilityLabel={`Last ${days} days`}
+                accessibilityState={{ selected: isActive }}
               >
-                {days}d
-              </Text>
-            </TouchableOpacity>
-          ))}
+                <Text
+                  style={[
+                    styles.filterChipText,
+                    isActive && styles.filterChipTextActive,
+                  ]}
+                >
+                  {days}d
+                </Text>
+              </KineticPressable>
+            );
+          })}
         </View>
 
-        {/* Records */}
-        <View style={styles.recordsSection}>
-          <Text style={styles.sectionTitle}>
-            Attendance Records ({records.length})
-          </Text>
+        {/* ╭───── Records section ─────╮ */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionLabel}>Records</Text>
+          <Text style={styles.sectionCount}>{records.length}</Text>
+        </View>
 
-          {records.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No attendance records found</Text>
-            </View>
-          ) : (
-            records.map((record: any) => (
-              <View key={record.id} style={styles.recordCard}>
-                <View style={styles.recordHeader}>
-                  <Text style={styles.recordDate}>
-                    {formatDate(record.attend_date)}
+        {records.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Text style={styles.emptyGlyph}>∅</Text>
+            <Text style={styles.emptyText}>No records in this range</Text>
+          </View>
+        ) : (
+          records.map((record: any) => (
+            <View key={record.id} style={styles.recordCard}>
+              <View style={styles.recordHeader}>
+                <Text style={styles.recordDate}>
+                  {formatDate(record.attend_date)}
+                </Text>
+                <View style={styles.punchCountBadge}>
+                  <Text style={styles.punchCountText}>
+                    {record.punchCount} punch{record.punchCount !== 1 ? 'es' : ''}
                   </Text>
-                  <View style={styles.punchCountBadge}>
-                    <Text style={styles.punchCountText}>
-                      {record.punchCount} punch{record.punchCount !== 1 ? 'es' : ''}
-                    </Text>
-                  </View>
                 </View>
-
-                {/* Punch list */}
-                {record.punches &&
-                  record.punches.map((p: any, idx: number) => (
-                    <View key={idx} style={styles.punchRow}>
-                      <Text style={styles.punchIndex}>#{p.index}</Text>
-                      <Text style={styles.punchTime}>{formatTime(p.time)}</Text>
-                      {p.location && (
-                        <Text style={styles.punchLocation}>{p.location}</Text>
-                      )}
-                    </View>
-                  ))}
               </View>
-            ))
-          )}
-        </View>
+
+              {record.punches &&
+                record.punches.map((p: any, idx: number) => (
+                  <View
+                    key={idx}
+                    style={[
+                      styles.punchRow,
+                      // Strip the divider from the last row for a tidy bottom edge
+                      idx === record.punches.length - 1 && styles.punchRowLast,
+                    ]}
+                  >
+                    <View style={styles.punchIndexBadge}>
+                      <Text style={styles.punchIndexText}>#{p.index}</Text>
+                    </View>
+                    <Text style={styles.punchTime}>{formatTime(p.time)}</Text>
+                    {p.location && (
+                      <Text
+                        style={styles.punchLocation}
+                        numberOfLines={1}
+                      >
+                        {p.location}
+                      </Text>
+                    )}
+                  </View>
+                ))}
+            </View>
+          ))
+        )}
       </ScrollView>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 10,
-    color: '#666',
-    fontSize: 16,
-  },
+  container: { flex: 1, backgroundColor: palette.canvas },
+  centerContent: { justifyContent: 'center', alignItems: 'center', gap: spacing.md },
+  loadingText: { ...typography.caption, color: palette.inkMuted },
+
+  // ── Header ───────────────────────────────────────────────────────────────
   header: {
-    backgroundColor: '#1E68B8',
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    backgroundColor: palette.brandDeep,
+    paddingTop: 52,
+    paddingBottom: spacing.xxl,
+    paddingHorizontal: spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
+    borderBottomLeftRadius: radii.xxl,
+    borderBottomRightRadius: radii.xxl,
+    ...elevation.level2,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 44, height: 44,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(250, 250, 248, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(250, 250, 248, 0.20)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
   backIcon: {
-    fontSize: 24,
-    color: '#FFF',
+    fontSize: 22,
+    color: palette.inkInverse,
     fontWeight: '600',
+    marginLeft: -1,
   },
-  headerInfo: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFF',
-  },
+  headerInfo: { flex: 1 },
+  headerTitle: { ...typography.title, color: palette.inkInverse },
   headerSubtitle: {
-    fontSize: 12,
-    color: '#E0E0E0',
+    ...typography.caption,
+    color: 'rgba(250, 250, 248, 0.78)',
     marginTop: 2,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+
+  // ── Body ─────────────────────────────────────────────────────────────────
+  content: { flex: 1 },
+  contentInner: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing['4xl'],
   },
+
+  // ── Filter chip row ──────────────────────────────────────────────────────
   filterRow: {
     flexDirection: 'row',
     justifyContent: 'center',
-    marginBottom: 20,
-    gap: 8,
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.xl,
   },
-  filterButton: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#FFF',
-    borderWidth: 2,
-    borderColor: '#E0E0E0',
-  },
-  filterButtonActive: {
-    backgroundColor: '#1E68B8',
-    borderColor: '#1E68B8',
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
-  },
-  filterTextActive: {
-    color: '#FFF',
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#1E68B8',
-    marginBottom: 15,
-  },
-  recordsSection: {
-    marginBottom: 30,
-  },
-  emptyState: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
-    color: '#666',
-    fontSize: 16,
-    textAlign: 'center',
-  },
-  recordCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 12,
+  filterChip: {
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    backgroundColor: palette.surface,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    borderColor: palette.borderHairline,
+    ...elevation.level1,
+  },
+  filterChipActive: {
+    backgroundColor: palette.brandDeep,
+    borderColor: palette.brandDeep,
+  },
+  filterChipText: {
+    ...typography.button,
+    color: palette.inkBase,
+  },
+  filterChipTextActive: {
+    color: palette.inkInverse,
+  },
+
+  // ── Section header ───────────────────────────────────────────────────────
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'baseline',
+    marginBottom: spacing.md,
+  },
+  sectionLabel: {
+    ...typography.overline,
+    color: palette.inkMuted,
+  },
+  sectionCount: {
+    ...typography.caption,
+    color: palette.inkSoft,
+    fontWeight: '700',
+  },
+
+  // ── Empty state ──────────────────────────────────────────────────────────
+  emptyCard: {
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    padding: spacing['3xl'],
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
+    ...elevation.level1,
+  },
+  emptyGlyph: { fontSize: 36, color: palette.inkSoft },
+  emptyText: { ...typography.body, color: palette.inkMuted },
+
+  // ── Record card ──────────────────────────────────────────────────────────
+  recordCard: {
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,        // outer = 16
+    padding: spacing.lg,            // padding = 16 → inner radius = 0
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
+    ...elevation.level1,
   },
   recordHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: spacing.md,
   },
   recordDate: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
+    ...typography.bodyEmphasis,
+    color: palette.inkStrong,
+    flex: 1,
   },
   punchCountBadge: {
-    backgroundColor: '#1E68B8',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    backgroundColor: palette.brandSoft,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
   },
   punchCountText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '600',
+    ...typography.caption,
+    color: palette.brandInk,
+    fontWeight: '700',
   },
+
+  // ── Punch row inside record ──────────────────────────────────────────────
   punchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 4,
+    gap: spacing.md,
+    paddingVertical: spacing.sm,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: palette.borderHairline,
   },
-  punchIndex: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#1E68B8',
-    width: 30,
+  punchRowLast: {
+    borderBottomWidth: 0,
+    paddingBottom: 0,
+  },
+  punchIndexBadge: {
+    backgroundColor: palette.canvasAlt,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radii.xs,
+    minWidth: 36,
+    alignItems: 'center',
+  },
+  punchIndexText: {
+    ...typography.caption,
+    color: palette.brandDeep,
+    fontWeight: '700',
   },
   punchTime: {
-    fontSize: 13,
-    color: '#333',
-    width: 100,
+    ...typography.bodyEmphasis,
+    color: palette.inkStrong,
+    minWidth: 90,
   },
   punchLocation: {
-    fontSize: 11,
-    color: '#999',
+    ...typography.caption,
+    color: palette.inkMuted,
     flex: 1,
+    fontFamily: 'monospace',
   },
 });

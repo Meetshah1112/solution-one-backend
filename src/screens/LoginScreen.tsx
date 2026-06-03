@@ -3,7 +3,6 @@ import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   StyleSheet,
   StatusBar,
   KeyboardAvoidingView,
@@ -16,16 +15,31 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RootStackParamList } from '../types';
 import { Logo } from '../components/Logo';
 import { api } from '../services/api';
+import {
+  palette,
+  spacing,
+  radii,
+  typography,
+  elevation,
+  innerRadius,
+  KineticPressable,
+} from '../theme';
 
 type LoginScreenProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'Login'>;
 };
 
 export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
+  // ─── Business logic preserved verbatim ──────────────────────────────────
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Focus tracking is the only NEW piece of state — purely visual:
+  // it lets us render a branded focus ring instead of the platform default,
+  // satisfying the accessibility guideline for keyboard / a11y navigation.
+  const [focusedField, setFocusedField] = useState<'email' | 'password' | null>(null);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -62,84 +76,117 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
     }
   };
 
+  // ─── Presentation ───────────────────────────────────────────────────────
   return (
     <KeyboardAvoidingView
       style={styles.container}
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F5F5" />
+      {/* Warm canvas-toned status bar — no harsh blue band on login */}
+      <StatusBar barStyle="dark-content" backgroundColor={palette.canvas} />
+
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        {/* Logo */}
+        {/* Logo: optical centring with breathing room above for visual rest */}
         <View style={styles.logoContainer}>
           <Logo width={180} height={100} />
         </View>
 
-        {/* Title */}
+        {/* Title block: hierarchy via scale + weight, not bright color */}
         <View style={styles.titleContainer}>
-          <Text style={styles.title}>Welcome</Text>
-          <Text style={styles.subtitle}>Multi-Tenant Attendance System</Text>
+          <Text style={styles.title} accessibilityRole="header">
+            Welcome back
+          </Text>
+          <Text style={styles.subtitle}>Sign in to mark your attendance</Text>
         </View>
 
-        {/* Credentials */}
+        {/* Credentials: sunken input wells (post-neumorphic "inset" feel)
+            with branded focus rings rather than a permanent 2px blue border  */}
         <View style={styles.credentialsSection}>
-          <View style={styles.inputWrapper}>
+          <Field label="Email">
             <TextInput
-              style={styles.input}
-              placeholder="Email"
-              placeholderTextColor="#999"
+              style={[
+                styles.input,
+                focusedField === 'email' && styles.inputFocused,
+              ]}
+              placeholder="you@company.com"
+              placeholderTextColor={palette.inkSoft}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+              autoComplete="email"
               editable={!loading}
+              onFocus={() => setFocusedField('email')}
+              onBlur={() => setFocusedField(null)}
+              accessibilityLabel="Email address"
             />
-          </View>
+          </Field>
 
-          <View style={styles.inputWrapper}>
+          <Field label="Password">
             <TextInput
-              style={styles.input}
-              placeholder="Password"
-              placeholderTextColor="#999"
+              style={[
+                styles.input,
+                focusedField === 'password' && styles.inputFocused,
+              ]}
+              placeholder="Enter your password"
+              placeholderTextColor={palette.inkSoft}
               value={password}
               onChangeText={setPassword}
               secureTextEntry
+              autoComplete="password"
               editable={!loading}
+              onFocus={() => setFocusedField('password')}
+              onBlur={() => setFocusedField(null)}
+              accessibilityLabel="Password"
             />
-          </View>
+          </Field>
         </View>
 
-        {/* Login Button */}
-        <TouchableOpacity
-          style={[styles.loginButton, loading && styles.loginButtonDisabled]}
+        {/* Primary CTA: KineticPressable so press feedback is tactile.
+            Shadow is post-neumorphic (brand-tinted, low opacity, wide blur)  */}
+        <KineticPressable
+          style={[
+            styles.loginButton,
+            loading && styles.loginButtonDisabled,
+          ]}
           onPress={handleLogin}
-          activeOpacity={0.9}
           disabled={loading}
+          accessibilityLabel="Sign in"
+          accessibilityHint="Tap to log in with the credentials above"
         >
           {loading ? (
-            <ActivityIndicator color="#FFF" />
+            <ActivityIndicator color={palette.inkInverse} />
           ) : (
-            <Text style={styles.loginButtonText}>Login</Text>
+            <Text style={styles.loginButtonText}>Sign In</Text>
           )}
-        </TouchableOpacity>
+        </KineticPressable>
 
-        {/* Access Blocked Error */}
+        {/* HR-block error: muted danger tones rather than alarming pure red */}
         {errorMessage !== '' && (
-          <View style={styles.errorCard}>
+          <View
+            style={styles.errorCard}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+          >
+            <Text style={styles.errorIcon}>!</Text>
             <Text style={styles.errorText}>{errorMessage}</Text>
           </View>
         )}
 
-        {/* Test Credentials */}
+        {/* Test credentials: dialled down — small, muted, supporting role only */}
         <View style={styles.testCredentials}>
-          <Text style={styles.testCredentialsTitle}>Test Accounts:</Text>
+          <Text style={styles.testCredentialsTitle}>Test accounts</Text>
           <Text style={styles.testCredentialsText}>
-            Solution One Admin: admin@solutionone.com / admin123
+            <Text style={styles.testCredentialsLabel}>Admin · </Text>
+            admin@solutionone.com / admin123
           </Text>
           <Text style={styles.testCredentialsText}>
-            Solution One Employee: employee1@solutionone.com / emp123
+            <Text style={styles.testCredentialsLabel}>Employee · </Text>
+            employee1@solutionone.com / emp123
           </Text>
         </View>
       </ScrollView>
@@ -147,113 +194,174 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ navigation }) => {
   );
 };
 
+/* ──────────────────────────────────────────────────────────────────────────
+ * Field — small co-located atom for "label + input" pairs.
+ * Keeps the JSX tidy and ensures consistent label typography everywhere.
+ * ────────────────────────────────────────────────────────────────────────── */
+const Field: React.FC<{ label: string; children: React.ReactNode }> = ({
+  label,
+  children,
+}) => (
+  <View style={styles.fieldWrapper}>
+    <Text style={styles.fieldLabel}>{label}</Text>
+    {children}
+  </View>
+);
+
 const styles = StyleSheet.create({
+  // ── Canvas ───────────────────────────────────────────────────────────────
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    // Warm-cream canvas instead of #F5F5F5 — luxurious and easier on eyes
+    backgroundColor: palette.canvas,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingHorizontal: 30,
-    paddingVertical: 20,
+    // 8px grid: 32px horizontal (4 units) + 24px vertical (3 units)
+    paddingHorizontal: spacing['3xl'],
+    paddingVertical: spacing.xxl,
     justifyContent: 'center',
   },
+
+  // ── Logo block ───────────────────────────────────────────────────────────
   logoContainer: {
     alignItems: 'center',
-    marginBottom: 20,
+    // 24px gap below logo — 3 spatial units, matches title block top breathing
+    marginBottom: spacing.xxl,
   },
+
+  // ── Title block ──────────────────────────────────────────────────────────
   titleContainer: {
     alignItems: 'center',
-    marginBottom: 30,
+    // 40px before form fields creates a generous editorial rest
+    marginBottom: spacing['4xl'],
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1E68B8',
-    marginBottom: 8,
+    ...typography.display,
+    // Ink-mocha instead of brand-blue — typography hierarchy via scale, not color
+    color: palette.inkStrong,
+    marginBottom: spacing.sm,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#666',
+    ...typography.body,
+    // Muted ink (5:1 contrast) — supporting, not competing
+    color: palette.inkMuted,
   },
+
+  // ── Field wrapper + label ────────────────────────────────────────────────
   credentialsSection: {
-    marginBottom: 20,
+    marginBottom: spacing.xxl,
   },
-  inputWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#1E68B8',
-    paddingHorizontal: 15,
-    marginBottom: 15,
-    height: 55,
+  fieldWrapper: {
+    // 16px stack gap between fields
+    marginBottom: spacing.lg,
   },
+  fieldLabel: {
+    ...typography.caption,
+    color: palette.inkMuted,
+    marginBottom: spacing.sm,
+    // Slight letter-spacing makes overlines feel intentional
+    letterSpacing: 0.3,
+  },
+
+  // ── Input wells (post-neumorphic sunken feel) ────────────────────────────
   input: {
-    flex: 1,
-    fontSize: 16,
-    color: '#333',
+    backgroundColor: palette.surfaceSunken,
+    // 12px radius — sits well inside the 32px screen padding rhythm
+    borderRadius: radii.md,
+    // Hairline border by default; focus state swaps to branded ring
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
+    paddingHorizontal: spacing.lg,
+    // 16px vertical padding → 56px total height (8 grid * 7 = matches button)
+    paddingVertical: spacing.lg,
+    ...typography.bodyLarge,
+    color: palette.inkStrong,
+    // M3-style inset feel: zero shadow, slightly recessed colour palette
   },
+  inputFocused: {
+    // Branded focus ring — replaces the default browser outline & the
+    // previous always-on 2px blue border (which was visually noisy).
+    borderColor: palette.brandDeep,
+    borderWidth: 2,
+    backgroundColor: palette.surface,
+  },
+
+  // ── Primary CTA ──────────────────────────────────────────────────────────
   loginButton: {
-    backgroundColor: '#1E68B8',
-    borderRadius: 30,
-    height: 55,
+    backgroundColor: palette.brandDeep,
+    // 16px radius pairs with the 16px input radius for harmonic rhythm
+    borderRadius: radii.lg,
+    // 56px total height keeps it tappable & matches input height
+    paddingVertical: spacing.lg,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 20,
-    shadowColor: '#1E68B8',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 8,
+    marginBottom: spacing.lg,
+    // Multi-layered post-neumorphic shadow — wide blur, low opacity
+    ...elevation.level3,
   },
   loginButtonDisabled: {
-    opacity: 0.6,
+    // Soft fade rather than ugly grey — feels intentional
+    opacity: 0.55,
   },
   loginButtonText: {
-    color: '#FFF',
-    fontSize: 18,
-    fontWeight: '600',
+    ...typography.buttonLarge,
+    color: palette.inkInverse,
   },
+
+  // ── Error card ───────────────────────────────────────────────────────────
   errorCard: {
-    backgroundColor: '#FFEBEE',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#D32F2F',
-    padding: 16,
-    marginBottom: 15,
-    alignItems: 'center',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    backgroundColor: palette.dangerSoft,
+    borderRadius: radii.md,
+    // 1px hairline border (not 2px) — danger-soft bg already conveys urgency
+    borderWidth: 1,
+    borderColor: palette.dangerBase,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    gap: spacing.md,
+    ...elevation.level1,
+  },
+  errorIcon: {
+    ...typography.subtitle,
+    color: palette.dangerDeep,
+    // Optical centring: glyph sits slightly above baseline, this nudges it down
+    marginTop: 1,
   },
   errorText: {
-    color: '#C62828',
-    fontSize: 14,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 20,
+    ...typography.body,
+    color: palette.dangerInk,
+    flex: 1,
+    // 1.5 line-height already baked into typography.body for readability
   },
+
+  // ── Test credentials (de-emphasised supporting copy) ─────────────────────
   testCredentials: {
-    backgroundColor: '#FFF',
-    padding: 15,
-    borderRadius: 10,
+    backgroundColor: palette.surface,
+    // Nesting formula: outer card is 12px radius with 16px padding,
+    // so any inner element gets radius 0 (max(0, 12-16) = 0)
+    borderRadius: radii.md,
+    padding: spacing.lg,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: palette.borderHairline,
+    // Whisper-level shadow — almost flat
+    ...elevation.level1,
   },
   testCredentialsTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 8,
+    ...typography.overline,
+    color: palette.inkMuted,
+    marginBottom: spacing.md,
   },
   testCredentialsText: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 4,
+    ...typography.caption,
+    color: palette.inkMuted,
+    // Small gap between rows — 4px micro-adjust (allowed inside dense block)
+    marginBottom: spacing.xs,
   },
-  testCredentialsNote: {
-    fontSize: 11,
-    color: '#999',
-    fontStyle: 'italic',
-    marginTop: 4,
+  testCredentialsLabel: {
+    // Inline label emphasis without changing color → typography hierarchy
+    fontWeight: '700',
+    color: palette.inkBase,
   },
 });

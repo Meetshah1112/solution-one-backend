@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   StatusBar,
   ScrollView,
@@ -16,6 +15,15 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList, Punch } from '../types';
 import { api } from '../services/api';
+import {
+  palette,
+  spacing,
+  radii,
+  typography,
+  elevation,
+  innerRadius,
+  KineticPressable,
+} from '../theme';
 
 type EmployeeDetailProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'EmployeeDetail'>;
@@ -29,6 +37,7 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailProps> = ({
   const { user, token, employeeId, employeeName, employeeEmail, isActive, date } =
     route.params;
 
+  // ─── Logic preserved verbatim ────────────────────────────────────────────
   const [loading, setLoading] = useState(true);
   const [punches, setPunches] = useState<Punch[]>([]);
   const [zoomedPhoto, setZoomedPhoto] = useState<string | null>(null);
@@ -66,13 +75,17 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailProps> = ({
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1E68B8" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.brandDeep} />
 
-      {/* Header */}
+      {/* ╭───── Header with back + employee identity ─────╮ */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
+        <KineticPressable
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+          accessibilityLabel="Go back"
+        >
           <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
+        </KineticPressable>
         <View style={styles.headerInfo}>
           <View style={styles.headerNameRow}>
             <Text style={styles.headerTitle} numberOfLines={1}>
@@ -87,76 +100,92 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailProps> = ({
               <Text
                 style={[
                   styles.statusBadgeText,
-                  { color: isActive ? '#2E7D32' : '#C62828' },
+                  { color: isActive ? palette.successInk : palette.dangerInk },
                 ]}
               >
                 {isActive ? 'Active' : 'Blocked'}
               </Text>
             </View>
           </View>
-          <Text style={styles.headerSubtitle}>{employeeEmail}</Text>
-          <Text style={styles.headerDate}>📅 {date}</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>
+            {employeeEmail}
+          </Text>
+          <Text style={styles.headerDate}>{date}</Text>
         </View>
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color="#1E68B8" />
-          <Text style={styles.loadingText}>Loading punches...</Text>
+        <View style={styles.centerState}>
+          <ActivityIndicator size="large" color={palette.brandDeep} />
+          <Text style={styles.loadingText}>Loading punches…</Text>
         </View>
       ) : (
-        <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-          {/* Punches */}
-          <Text style={[styles.sectionTitle, { marginTop: 18 }]}>Punch Records</Text>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.contentInner}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* ╭───── Punches section ─────╮ */}
+          <Text style={styles.sectionLabel}>Punch records</Text>
 
           {punches.length === 0 ? (
-            <View style={styles.emptyCard}>
-              <Text style={styles.emptyIcon}>🚫</Text>
-              <Text style={styles.emptyText}>No punches recorded for this date</Text>
+            <View style={styles.emptyCard} accessibilityRole="text">
+              <Text style={styles.emptyGlyph}>∅</Text>
+              <Text style={styles.emptyTitle}>No punches recorded</Text>
+              <Text style={styles.emptyText}>
+                Nothing logged for this employee on the selected date.
+              </Text>
             </View>
           ) : (
             punches.map((p) => (
               <View key={p.index} style={styles.punchCard}>
-                {/* Top row */}
+                {/* Top row: index badge + time + map chip (or no-GPS pill) */}
                 <View style={styles.punchTopRow}>
                   <View style={styles.punchIndexBadge}>
                     <Text style={styles.punchIndexText}>#{p.index}</Text>
                   </View>
                   <Text style={styles.punchTime}>{formatTime(p.time)}</Text>
                   {p.location ? (
-                    <TouchableOpacity
-                      style={styles.mapButton}
+                    <KineticPressable
+                      style={styles.mapChip}
                       onPress={() => openMap(p.location!)}
+                      accessibilityLabel={`Open punch #${p.index} on map`}
                     >
-                      <Text style={styles.mapButtonText}>📍 Map</Text>
-                    </TouchableOpacity>
+                      <Text style={styles.mapChipText}>Map</Text>
+                    </KineticPressable>
                   ) : (
-                    <Text style={styles.noLocation}>No GPS</Text>
+                    <View style={styles.noGpsPill}>
+                      <Text style={styles.noGpsText}>No GPS</Text>
+                    </View>
                   )}
                 </View>
 
-                {/* Photo */}
+                {/* Photo: nesting formula → outer 16 radius, padding 12 → inner 4 */}
                 {p.photo ? (
-                  <TouchableOpacity onPress={() => setZoomedPhoto(p.photo!)}>
+                  <KineticPressable
+                    onPress={() => setZoomedPhoto(p.photo!)}
+                    style={styles.photoWrapper}
+                    accessibilityLabel={`View punch #${p.index} selfie at full size`}
+                  >
                     <Image
                       source={{ uri: p.photo }}
                       style={styles.punchPhoto}
                       resizeMode="cover"
                     />
-                    <Text style={styles.tapHint}>Tap photo to zoom</Text>
-                  </TouchableOpacity>
+                    <Text style={styles.tapHint}>Tap to zoom</Text>
+                  </KineticPressable>
                 ) : (
                   <View style={styles.noPhotoBox}>
-                    <Text style={styles.noPhotoText}>📷 No photo captured</Text>
+                    <Text style={styles.noPhotoText}>No photo captured</Text>
                   </View>
                 )}
               </View>
             ))
           )}
 
-          {/* Branch Permissions on its own */}
-          <TouchableOpacity
-            style={styles.branchPermsButton}
+          {/* ╭───── Branch permissions deep-link ─────╮ */}
+          <KineticPressable
+            style={styles.branchPermsCard}
             onPress={() =>
               navigation.navigate('BranchPermissions', {
                 user,
@@ -165,181 +194,319 @@ export const EmployeeDetailScreen: React.FC<EmployeeDetailProps> = ({
                 employeeName,
               })
             }
+            accessibilityLabel="Manage branch permissions"
+            accessibilityHint="Configure which branches this employee can punch from"
           >
-            <Text style={styles.branchPermsIcon}>🔐</Text>
+            <View style={styles.branchPermsIconWrap}>
+              <Text style={styles.branchPermsIcon}>⚑</Text>
+            </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.branchPermsText}>Branch Permissions</Text>
+              <Text style={styles.branchPermsTitle}>Branch permissions</Text>
               <Text style={styles.branchPermsHint}>
-                Manage which branches this employee can punch from
+                Set primary unit & allowed punch locations
               </Text>
             </View>
             <Text style={styles.branchPermsArrow}>›</Text>
-          </TouchableOpacity>
+          </KineticPressable>
 
-          <View style={{ height: 30 }} />
+          <View style={{ height: spacing['4xl'] }} />
         </ScrollView>
       )}
 
-      {/* Photo zoom modal */}
+      {/* ╭───── Full-screen photo zoom modal ─────╮ */}
       <Modal
         visible={zoomedPhoto !== null}
         transparent
         animationType="fade"
         onRequestClose={() => setZoomedPhoto(null)}
       >
-        <View style={styles.modalOverlay}>
-          <TouchableOpacity
-            style={styles.modalCloseArea}
-            activeOpacity={1}
-            onPress={() => setZoomedPhoto(null)}
-          >
-            {zoomedPhoto && (
-              <Image
-                source={{ uri: zoomedPhoto }}
-                style={styles.zoomedImage}
-                resizeMode="contain"
-              />
-            )}
-            <Text style={styles.modalHint}>Tap anywhere to close</Text>
-          </TouchableOpacity>
-        </View>
+        <KineticPressable
+          style={styles.zoomScrim}
+          onPress={() => setZoomedPhoto(null)}
+          dimOnPress={false}
+          pressScale={1}        // no scale on the backdrop itself
+          accessibilityLabel="Close zoomed photo"
+          accessibilityHint="Tap anywhere to close"
+        >
+          {zoomedPhoto && (
+            <Image
+              source={{ uri: zoomedPhoto }}
+              style={styles.zoomedImage}
+              resizeMode="contain"
+            />
+          )}
+          <Text style={styles.zoomHint}>Tap anywhere to close</Text>
+        </KineticPressable>
       </Modal>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
+  // ── Canvas ───────────────────────────────────────────────────────────────
+  container: { flex: 1, backgroundColor: palette.canvas },
+
+  // ── Header ───────────────────────────────────────────────────────────────
   header: {
-    backgroundColor: '#1E68B8',
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    backgroundColor: palette.brandDeep,
+    paddingTop: 52,
+    paddingBottom: spacing.xxl,
+    paddingHorizontal: spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
+    borderBottomLeftRadius: radii.xxl,
+    borderBottomRightRadius: radii.xxl,
+    ...elevation.level2,
   },
+  // 44 × 44 (Apple HIG min tap target) — pill radius
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 44, height: 44,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(250, 250, 248, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(250, 250, 248, 0.20)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
-  backIcon: { fontSize: 24, color: '#FFF', fontWeight: '600' },
-  headerInfo: { flex: 1 },
-  headerNameRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap' },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#FFF', flexShrink: 1 },
-  statusBadge: {
-    marginLeft: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  activeBadge: { backgroundColor: '#C8E6C9' },
-  blockedBadge: { backgroundColor: '#FFCDD2' },
-  statusBadgeText: { fontSize: 10, fontWeight: '700' },
-  headerSubtitle: { fontSize: 12, color: '#E0E0E0', marginTop: 2 },
-  headerDate: { fontSize: 11, color: '#B3D9FF', marginTop: 4 },
-  content: { flex: 1, paddingHorizontal: 20 },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 12, color: '#666' },
-  statsBar: {
-    flexDirection: 'row',
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 14,
-    marginTop: 18,
-    marginBottom: 18,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 3,
-  },
-  statBox: { flex: 1, alignItems: 'center' },
-  statNumber: { fontSize: 22, fontWeight: 'bold', color: '#1E68B8' },
-  statLabel: { fontSize: 11, color: '#666', marginTop: 2 },
-  sectionTitle: {
-    fontSize: 16,
+  backIcon: {
+    fontSize: 22,
+    color: palette.inkInverse,
     fontWeight: '600',
-    color: '#1E68B8',
-    marginBottom: 10,
+    marginLeft: -1, // optical: arrow glyph sits slightly off-centre
   },
+  headerInfo: { flex: 1 },
+  headerNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  headerTitle: {
+    ...typography.title,
+    color: palette.inkInverse,
+    flexShrink: 1,
+  },
+  statusBadge: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
+  },
+  activeBadge: { backgroundColor: palette.successSoft },
+  blockedBadge: { backgroundColor: palette.dangerSoft },
+  statusBadgeText: {
+    ...typography.overline,
+    letterSpacing: 0.6,
+  },
+  headerSubtitle: {
+    ...typography.caption,
+    color: 'rgba(250, 250, 248, 0.78)',
+    marginTop: spacing.xs,
+  },
+  headerDate: {
+    ...typography.overline,
+    color: 'rgba(250, 250, 248, 0.62)',
+    marginTop: spacing.xs,
+    letterSpacing: 1.0,
+  },
+
+  // ── Loading / center state ───────────────────────────────────────────────
+  centerState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  loadingText: {
+    ...typography.caption,
+    color: palette.inkMuted,
+  },
+
+  // ── Body ─────────────────────────────────────────────────────────────────
+  content: { flex: 1 },
+  contentInner: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing.xxl,
+  },
+  sectionLabel: {
+    ...typography.overline,
+    color: palette.inkMuted,
+    marginBottom: spacing.md,
+  },
+
+  // ── Empty state ──────────────────────────────────────────────────────────
   emptyCard: {
-    backgroundColor: '#FFF',
-    padding: 30,
-    borderRadius: 12,
+    backgroundColor: palette.surface,
+    padding: spacing.xxl,
+    borderRadius: radii.lg,
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
+    ...elevation.level1,
+  },
+  emptyGlyph: {
+    fontSize: 36,
+    color: palette.inkSoft,
+    marginBottom: spacing.xs,
+  },
+  emptyTitle: {
+    ...typography.subtitle,
+    color: palette.inkBase,
+  },
+  emptyText: {
+    ...typography.caption,
+    color: palette.inkMuted,
+    textAlign: 'center',
+  },
+
+  // ── Punch card (nesting math applied to inner photo) ────────────────────
+  punchCard: {
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,        // outer = 16
+    padding: spacing.md,           // padding = 12
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
+    ...elevation.level1,
+    // → inner photo radius = max(0, 16 - 12) = 4
+  },
+  punchTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    gap: spacing.md,
+  },
+  punchIndexBadge: {
+    backgroundColor: palette.brandDeep,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
+    minWidth: 44,
     alignItems: 'center',
   },
-  emptyIcon: { fontSize: 36, marginBottom: 8 },
-  emptyText: { color: '#666', fontSize: 14 },
-  punchCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 14,
-    padding: 14,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+  punchIndexText: {
+    ...typography.caption,
+    color: palette.inkInverse,
+    fontWeight: '700',
   },
-  punchTopRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  punchIndexBadge: {
-    backgroundColor: '#1E68B8',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    marginRight: 12,
+  punchTime: {
+    ...typography.subtitle,
+    color: palette.inkStrong,
+    flex: 1,
   },
-  punchIndexText: { color: '#FFF', fontSize: 12, fontWeight: '700' },
-  punchTime: { flex: 1, fontSize: 16, fontWeight: '600', color: '#333' },
-  mapButton: {
-    backgroundColor: '#1E68B8',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
+  mapChip: {
+    backgroundColor: palette.brandDeep,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
   },
-  mapButtonText: { color: '#FFF', fontSize: 12, fontWeight: '600' },
-  noLocation: { fontSize: 11, color: '#999', fontStyle: 'italic' },
+  mapChipText: {
+    ...typography.caption,
+    color: palette.inkInverse,
+    fontWeight: '700',
+  },
+  noGpsPill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    backgroundColor: palette.canvasAlt,
+  },
+  noGpsText: {
+    ...typography.caption,
+    color: palette.inkMuted,
+    fontStyle: 'italic',
+  },
+
+  // ── Photo (nesting formula) ──────────────────────────────────────────────
+  photoWrapper: {
+    borderRadius: innerRadius(radii.lg, spacing.md),
+    overflow: 'hidden',
+  },
   punchPhoto: {
     width: '100%',
     aspectRatio: 4 / 3,
-    backgroundColor: '#000',
-    borderRadius: 10,
+    backgroundColor: palette.inkStrong,
+    borderRadius: innerRadius(radii.lg, spacing.md),
   },
   tapHint: {
     textAlign: 'center',
-    color: '#999',
-    fontSize: 11,
-    marginTop: 6,
+    color: palette.inkSoft,
+    ...typography.caption,
+    marginTop: spacing.xs,
   },
   noPhotoBox: {
-    height: 70,
-    borderRadius: 10,
-    backgroundColor: '#F5F5F5',
+    height: 72,
+    borderRadius: innerRadius(radii.lg, spacing.md),
+    backgroundColor: palette.surfaceSunken,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: palette.borderHairline,
     borderStyle: 'dashed',
   },
-  noPhotoText: { color: '#999', fontSize: 13 },
-  branchPermsButton: {
+  noPhotoText: {
+    ...typography.caption,
+    color: palette.inkSoft,
+  },
+
+  // ── Branch permissions card ──────────────────────────────────────────────
+  branchPermsCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 14,
-    padding: 16,
-    marginTop: 12,
+    gap: spacing.md,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    marginTop: spacing.md,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: palette.brandSoftBorder,
+    ...elevation.level2,
   },
-  branchPermsIcon: { fontSize: 24, marginRight: 12 },
-  branchPermsText: { fontSize: 15, fontWeight: '600', color: '#1E68B8' },
-  branchPermsHint: { fontSize: 11, color: '#666', marginTop: 2 },
-  branchPermsArrow: { fontSize: 20, color: '#1E68B8', fontWeight: 'bold' },
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.95)' },
-  modalCloseArea: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  zoomedImage: { width: '100%', height: '85%' },
-  modalHint: { color: '#FFF', fontSize: 12, marginTop: 10, opacity: 0.6 },
+  branchPermsIconWrap: {
+    width: 44, height: 44,
+    borderRadius: radii.md,
+    backgroundColor: palette.brandSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  branchPermsIcon: {
+    fontSize: 22,
+    color: palette.brandDeep,
+  },
+  branchPermsTitle: {
+    ...typography.subtitle,
+    color: palette.inkStrong,
+  },
+  branchPermsHint: {
+    ...typography.caption,
+    color: palette.inkMuted,
+    marginTop: 2,
+  },
+  branchPermsArrow: {
+    fontSize: 22,
+    color: palette.brandDeep,
+    fontWeight: '600',
+    marginTop: -2,
+  },
+
+  // ── Photo zoom modal ─────────────────────────────────────────────────────
+  zoomScrim: {
+    flex: 1,
+    backgroundColor: palette.scrimHeavy, // luxurious near-black, never true black
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.xl,
+  },
+  zoomedImage: {
+    width: '100%',
+    height: '85%',
+  },
+  zoomHint: {
+    ...typography.caption,
+    color: palette.inkInverse,
+    opacity: 0.6,
+    marginTop: spacing.md,
+  },
 });

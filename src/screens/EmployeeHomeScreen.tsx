@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   StatusBar,
   ScrollView,
@@ -17,6 +16,16 @@ import * as Location from 'expo-location';
 import * as ImagePicker from 'expo-image-picker';
 import { RootStackParamList, Unit, Punch } from '../types';
 import { api } from '../services/api';
+import {
+  palette,
+  spacing,
+  radii,
+  typography,
+  elevation,
+  motion,
+  KineticPressable,
+  QuietPressable,
+} from '../theme';
 
 type EmployeeHomeProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'EmployeeHome'>;
@@ -26,15 +35,12 @@ type EmployeeHomeProps = {
 export const EmployeeHomeScreen: React.FC<EmployeeHomeProps> = ({ route, navigation }) => {
   const { user, token } = route.params;
 
+  // ─── Business logic preserved verbatim ──────────────────────────────────
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Units
   const [units, setUnits] = useState<Unit[]>([]);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
   const [showUnitModal, setShowUnitModal] = useState(false);
-
-  // Today's punches
   const [punchCount, setPunchCount] = useState(0);
   const [punches, setPunches] = useState<Punch[]>([]);
 
@@ -168,193 +174,291 @@ export const EmployeeHomeScreen: React.FC<EmployeeHomeProps> = ({ route, navigat
     ]);
   };
 
+  // ─── Derived UI state for cleaner JSX below ─────────────────────────────
+  const isComplete = punchCount >= 14;
+  const hasNoUnits = units.length === 0;
+  const nextPunchNumber = punchCount + 1;
+
+  // ─── Presentation ───────────────────────────────────────────────────────
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1E68B8" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.brandDeep} />
 
-      {/* Header */}
+      {/* ╭───── Header ─────╮
+          Curved bottom edge softens the brand band → less "corporate header"  */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
-          <View style={styles.userIcon}>
-            <Text style={styles.userIconText}>👤</Text>
+          {/* Optically-centred avatar circle */}
+          <View style={styles.avatar}>
+            <Text style={styles.avatarText}>{initialsOf(user.name)}</Text>
           </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.headerTitle}>Hello, {user.name}</Text>
-            <Text style={styles.headerSubtitle}>{user.email}</Text>
+          <View style={styles.headerCopy}>
+            <Text style={styles.headerGreeting}>Welcome back</Text>
+            <Text style={styles.headerName} numberOfLines={1}>
+              {user.name}
+            </Text>
             <Text style={styles.headerTenant}>
               {user.tenantDb === 'solution_one' ? 'Solution One' : 'CryoGas'}
             </Text>
           </View>
         </View>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+        <KineticPressable
+          onPress={handleLogout}
+          style={styles.logoutButton}
+          accessibilityLabel="Logout"
+        >
           <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        </KineticPressable>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Unit Selector */}
-        <View style={styles.unitSection}>
-          <Text style={styles.sectionLabel}>Select Unit</Text>
-          {units.length === 0 ? (
-            <View style={styles.noUnitsCard}>
-              <Text style={styles.noUnitsText}>No units assigned. Contact your admin.</Text>
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentInner}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ╭───── Unit selector ─────╮ */}
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Workplace</Text>
+
+          {hasNoUnits ? (
+            <View style={styles.warningCard} accessibilityRole="alert">
+              <Text style={styles.warningIcon}>!</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.warningTitle}>No units assigned</Text>
+                <Text style={styles.warningText}>Please contact your admin.</Text>
+              </View>
             </View>
           ) : (
-            <TouchableOpacity
+            <KineticPressable
               style={styles.unitSelector}
               onPress={() => { if (units.length > 1) setShowUnitModal(true); }}
               disabled={loading || units.length <= 1}
+              accessibilityLabel={`Selected unit: ${selectedUnit?.name}`}
+              accessibilityHint={units.length > 1 ? 'Tap to switch unit' : undefined}
             >
-              <View style={styles.unitSelectorContent}>
-                <Text style={styles.unitIcon}>
-                  {selectedUnit?.is_geofenced ? '📍' : '🏠'}
-                </Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.unitName}>
-                    {selectedUnit ? selectedUnit.name : 'Select Unit'}
+              <View style={styles.unitSelectorRow}>
+                <View
+                  style={[
+                    styles.unitGlyph,
+                    selectedUnit?.is_geofenced ? styles.unitGlyphGeo : styles.unitGlyphRemote,
+                  ]}
+                >
+                  <Text style={styles.unitGlyphText}>
+                    {selectedUnit?.is_geofenced ? '⌖' : '⌂'}
                   </Text>
-                  <Text style={styles.unitType}>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.unitName} numberOfLines={1}>
+                    {selectedUnit ? selectedUnit.name : 'Select unit'}
+                  </Text>
+                  <Text style={styles.unitMeta}>
                     {selectedUnit
                       ? selectedUnit.is_geofenced
-                        ? 'Geofenced (50m radius)'
-                        : 'No geofence'
+                        ? 'Geofenced · 50 m radius'
+                        : 'Remote / field work'
                       : ''}
                   </Text>
                 </View>
-                {units.length > 1 && (
-                  <Text style={styles.dropdownIcon}>▼</Text>
-                )}
+                {units.length > 1 && <Text style={styles.dropdownChevron}>▾</Text>}
               </View>
-            </TouchableOpacity>
+            </KineticPressable>
           )}
         </View>
 
-        {/* Today's Punches */}
+        {/* ╭───── Today's punches timeline ─────╮ */}
         {punchCount > 0 && (
-          <View style={styles.statusCard}>
-            <Text style={styles.statusTitle}>
-              Today's Punches ({punchCount}/14)
-            </Text>
-            {punches.map((p, idx) => (
-              <View key={idx} style={styles.punchRow}>
-                <Text style={styles.punchIndex}>#{p.index}</Text>
-                <Text style={styles.punchTime}>{formatTime(p.time)}</Text>
-                {p.location ? (
-                  <TouchableOpacity
-                    style={styles.mapButton}
-                    onPress={() =>
-                      Linking.openURL(
-                        'https://www.google.com/maps/search/?api=1&query=' + p.location
-                      )
-                    }
-                  >
-                    <Text style={styles.mapButtonText}>📍 Map</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <Text style={styles.punchLocation}>--</Text>
-                )}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionLabel}>Today's punches</Text>
+              <View style={styles.counterPill}>
+                <Text style={styles.counterPillText}>{punchCount}/14</Text>
               </View>
-            ))}
+            </View>
+
+            <View style={styles.statusCard}>
+              {punches.map((p, idx) => (
+                <View
+                  key={idx}
+                  style={[
+                    styles.punchRow,
+                    // Last row drops the divider for cleaner visual close
+                    idx === punches.length - 1 && styles.punchRowLast,
+                  ]}
+                >
+                  {/* Index badge: micro 4px radius (allowed inside dense atom) */}
+                  <View style={styles.punchIndexBadge}>
+                    <Text style={styles.punchIndexText}>#{p.index}</Text>
+                  </View>
+                  <Text style={styles.punchTime}>{formatTime(p.time)}</Text>
+                  {p.location ? (
+                    <KineticPressable
+                      style={styles.mapChip}
+                      onPress={() =>
+                        Linking.openURL(
+                          'https://www.google.com/maps/search/?api=1&query=' + p.location,
+                        )
+                      }
+                      accessibilityLabel={`View punch #${p.index} location on map`}
+                    >
+                      <Text style={styles.mapChipText}>Map</Text>
+                    </KineticPressable>
+                  ) : (
+                    <Text style={styles.punchNoLoc}>—</Text>
+                  )}
+                </View>
+              ))}
+            </View>
           </View>
         )}
 
-        {/* Punch Button */}
-        <View style={styles.attendanceSection}>
-          <TouchableOpacity
+        {/* ╭───── Primary CTA: the big circle ─────╮
+            This is the screen's anchor — strongest elevation, prominent scale  */}
+        <View style={styles.ctaSection}>
+          <KineticPressable
             style={[
-              styles.attendanceCircle,
-              punchCount >= 14 && styles.completedCircle,
+              styles.ctaCircle,
+              isComplete && styles.ctaCircleComplete,
+              (hasNoUnits || loading) && styles.ctaCircleDisabled,
             ]}
             onPress={handlePunch}
-            activeOpacity={0.9}
-            disabled={loading || punchCount >= 14 || units.length === 0}
+            disabled={loading || isComplete || hasNoUnits}
+            pressScale={motion.pressScaleProminent}
+            accessibilityRole="button"
+            accessibilityLabel={
+              isComplete
+                ? 'All 14 punches completed for today'
+                : `Mark attendance — punch number ${nextPunchNumber}`
+            }
           >
             {loading ? (
-              <ActivityIndicator color="#FFF" size="large" />
-            ) : punchCount >= 14 ? (
+              <ActivityIndicator color={palette.inkInverse} size="large" />
+            ) : isComplete ? (
               <>
-                <Text style={styles.circleIcon}>✓</Text>
-                <Text style={styles.circleTitle}>All Done</Text>
-                <Text style={styles.circleSubtitle}>14/14 punches</Text>
+                <Text style={styles.ctaGlyphComplete}>✓</Text>
+                <Text style={styles.ctaTitle}>All done</Text>
+                <Text style={styles.ctaSubtitle}>14 of 14 punches</Text>
               </>
             ) : (
               <>
-                <Text style={styles.circleIcon}>📍</Text>
-                <Text style={styles.circleTitle}>Mark Attendance</Text>
-                <Text style={styles.circleSubtitle}>
-                  Punch #{punchCount + 1} at {selectedUnit?.name || '...'}
+                <Text style={styles.ctaGlyph}>⌖</Text>
+                <Text style={styles.ctaTitle}>Tap to punch</Text>
+                <Text style={styles.ctaSubtitle} numberOfLines={1}>
+                  #{nextPunchNumber} · {selectedUnit?.name || 'select unit'}
                 </Text>
               </>
             )}
-          </TouchableOpacity>
+          </KineticPressable>
         </View>
 
-        {/* Refresh */}
-        <TouchableOpacity
-          style={styles.refreshButton}
-          onPress={loadStatus}
-          disabled={refreshing}
-        >
-          {refreshing ? (
-            <ActivityIndicator color="#1E68B8" size="small" />
-          ) : (
-            <Text style={styles.refreshText}>Refresh Status</Text>
-          )}
-        </TouchableOpacity>
+        {/* ╭───── Secondary actions ─────╮ */}
+        <View style={styles.secondaryActions}>
+          <KineticPressable
+            style={styles.secondaryButton}
+            onPress={loadStatus}
+            disabled={refreshing}
+            accessibilityLabel="Refresh status"
+          >
+            {refreshing ? (
+              <ActivityIndicator color={palette.brandDeep} size="small" />
+            ) : (
+              <Text style={styles.secondaryButtonText}>Refresh status</Text>
+            )}
+          </KineticPressable>
 
-        {/* History */}
-        <TouchableOpacity
-          style={styles.historyButton}
-          onPress={() => navigation.navigate('AttendanceHistory', { user, token })}
-        >
-          <Text style={styles.historyButtonText}>View My Attendance History</Text>
-        </TouchableOpacity>
+          <KineticPressable
+            style={styles.secondaryButtonFilled}
+            onPress={() => navigation.navigate('AttendanceHistory', { user, token })}
+            accessibilityLabel="View attendance history"
+          >
+            <Text style={styles.secondaryButtonFilledText}>View history</Text>
+            <Text style={styles.secondaryButtonChevron}>›</Text>
+          </KineticPressable>
+        </View>
+
+        {/* ╭───── HR self-service tiles ─────╮
+            Three quick-access cards for the new Phase 2 features */}
+        <Text style={styles.sectionLabel}>HR self-service</Text>
+        <View style={styles.menuRow}>
+          <MenuTile
+            label="Leave"
+            hint="Apply & track"
+            tint={palette.brandSoft}
+            ink={palette.brandDeep}
+            onPress={() => navigation.navigate('LeaveRequest', { user, token })}
+          />
+          <MenuTile
+            label="Adjust"
+            hint="Fix punches"
+            tint={palette.warningSoft}
+            ink={palette.warningDeep}
+            onPress={() => navigation.navigate('AdjustmentRequest', { user, token })}
+          />
+          <MenuTile
+            label="Salary"
+            hint="Slip & download"
+            tint={palette.successSoft}
+            ink={palette.successDeep}
+            onPress={() => navigation.navigate('SalarySlipList', { user, token })}
+          />
+        </View>
       </ScrollView>
 
-      {/* Unit Selection Modal */}
+      {/* ╭───── Unit selection modal ─────╮ */}
       <Modal
         visible={showUnitModal}
-        transparent={true}
-        animationType="slide"
+        transparent
+        animationType="fade"
         onRequestClose={() => setShowUnitModal(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Unit</Text>
-            <ScrollView style={styles.unitList}>
-              {units.map((unit) => (
-                <TouchableOpacity
-                  key={unit.id}
-                  style={[
-                    styles.unitItem,
-                    selectedUnit?.id === unit.id && styles.unitItemSelected,
-                  ]}
-                  onPress={() => {
-                    setSelectedUnit(unit);
-                    setShowUnitModal(false);
-                  }}
-                >
-                  <Text style={styles.unitItemIcon}>
-                    {unit.is_geofenced ? '📍' : '🏠'}
-                  </Text>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.unitItemName}>{unit.name}</Text>
-                    <Text style={styles.unitItemType}>
-                      {unit.is_geofenced ? 'Geofenced' : 'No geofence (WFH/Field)'}
-                    </Text>
-                  </View>
-                  {selectedUnit?.id === unit.id && (
-                    <Text style={styles.checkmark}>✓</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
+        <View style={styles.modalScrim}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Choose unit</Text>
+            <ScrollView style={styles.unitList} showsVerticalScrollIndicator={false}>
+              {units.map((unit) => {
+                const isSelected = selectedUnit?.id === unit.id;
+                return (
+                  <QuietPressable
+                    key={unit.id}
+                    style={[
+                      styles.unitListItem,
+                      isSelected && styles.unitListItemSelected,
+                    ]}
+                    onPress={() => {
+                      setSelectedUnit(unit);
+                      setShowUnitModal(false);
+                    }}
+                    accessibilityState={{ selected: isSelected }}
+                    accessibilityLabel={`${unit.name}, ${unit.is_geofenced ? 'geofenced' : 'remote'}`}
+                  >
+                    <View
+                      style={[
+                        styles.unitGlyph,
+                        unit.is_geofenced ? styles.unitGlyphGeo : styles.unitGlyphRemote,
+                      ]}
+                    >
+                      <Text style={styles.unitGlyphText}>
+                        {unit.is_geofenced ? '⌖' : '⌂'}
+                      </Text>
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.unitName}>{unit.name}</Text>
+                      <Text style={styles.unitMeta}>
+                        {unit.is_geofenced ? 'Geofenced' : 'Remote / field'}
+                      </Text>
+                    </View>
+                    {isSelected && <Text style={styles.unitSelectedTick}>✓</Text>}
+                  </QuietPressable>
+                );
+              })}
             </ScrollView>
-            <TouchableOpacity
+            <KineticPressable
               style={styles.modalCloseButton}
               onPress={() => setShowUnitModal(false)}
+              accessibilityLabel="Close unit picker"
             >
               <Text style={styles.modalCloseButtonText}>Close</Text>
-            </TouchableOpacity>
+            </KineticPressable>
           </View>
         </View>
       </Modal>
@@ -362,301 +466,466 @@ export const EmployeeHomeScreen: React.FC<EmployeeHomeProps> = ({ route, navigat
   );
 };
 
+/* Helper: derive 2-letter initials for the avatar circle.
+   Pure UI — uses the existing user.name, no state. */
+/* MenuTile — compact tile for HR self-service quick access.
+   Lives inline so the parent stylesheet can supply the visual tokens. */
+const MenuTile: React.FC<{
+  label: string;
+  hint: string;
+  tint: string;
+  ink: string;
+  onPress: () => void;
+}> = ({ label, hint, tint, ink, onPress }) => (
+  <KineticPressable
+    style={styles.menuTile}
+    onPress={onPress}
+    accessibilityLabel={label}
+    accessibilityHint={hint}
+  >
+    <View style={[styles.menuTileIcon, { backgroundColor: tint }]}>
+      <Text style={[styles.menuTileGlyph, { color: ink }]}>›</Text>
+    </View>
+    <Text style={styles.menuTileLabel}>{label}</Text>
+    <Text style={styles.menuTileHint}>{hint}</Text>
+  </KineticPressable>
+);
+
+const initialsOf = (name: string): string => {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '·';
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+};
+
 const styles = StyleSheet.create({
+  // ── Canvas ───────────────────────────────────────────────────────────────
   container: {
     flex: 1,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: palette.canvas,
   },
+  content: {
+    flex: 1,
+  },
+  contentInner: {
+    paddingHorizontal: spacing.xl,    // 20 → bumped to 24 for consistency
+    paddingTop: spacing.xl,
+    paddingBottom: spacing['5xl'],
+  },
+
+  // ── Header (brand band) ──────────────────────────────────────────────────
   header: {
-    backgroundColor: '#1E68B8',
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    backgroundColor: palette.brandDeep,
+    paddingTop: 52,                   // status bar + 8 grid
+    paddingBottom: spacing.xxl,
+    paddingHorizontal: spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
+    // Curved bottom edge softens the header into the canvas → editorial feel
+    borderBottomLeftRadius: radii.xxl,
+    borderBottomRightRadius: radii.xxl,
+    // Shadow leaks softly into the canvas to anchor the band
+    ...elevation.level2,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    gap: spacing.md,
   },
-  userIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#FFF',
+  // Avatar: 48px square with the nesting formula applied to keep glyph centred
+  avatar: {
+    width: 48,
+    height: 48,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(250, 250, 248, 0.18)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(250, 250, 248, 0.22)',
   },
-  userIconText: {
-    fontSize: 20,
+  avatarText: {
+    ...typography.subtitle,
+    color: palette.inkInverse,
+    letterSpacing: 0.5,
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFF',
+  headerCopy: { flex: 1 },
+  headerGreeting: {
+    ...typography.caption,
+    color: 'rgba(250, 250, 248, 0.75)',
+    fontWeight: '500',
   },
-  headerSubtitle: {
-    fontSize: 12,
-    color: '#E0E0E0',
+  headerName: {
+    ...typography.title,
+    color: palette.inkInverse,
     marginTop: 2,
   },
   headerTenant: {
-    fontSize: 11,
-    color: '#B3D9FF',
-    marginTop: 2,
+    ...typography.overline,
+    color: 'rgba(250, 250, 248, 0.65)',
+    marginTop: spacing.xs,
+    letterSpacing: 1.0,
   },
   logoutButton: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
+    backgroundColor: 'rgba(250, 250, 248, 0.14)',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(250, 250, 248, 0.18)',
   },
   logoutText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '600',
+    ...typography.button,
+    color: palette.inkInverse,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
+
+  // ── Section primitives ───────────────────────────────────────────────────
+  section: {
+    marginBottom: spacing.xxl,
   },
-  unitSection: {
-    marginTop: 20,
-    marginBottom: 15,
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
   },
   sectionLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E68B8',
-    marginBottom: 10,
+    ...typography.overline,
+    color: palette.inkMuted,
   },
-  noUnitsCard: {
-    backgroundColor: '#FFF3E0',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#FF9800',
-    padding: 20,
-    alignItems: 'center',
+  counterPill: {
+    backgroundColor: palette.brandSoft,
+    borderRadius: radii.pill,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 4,
   },
-  noUnitsText: {
-    fontSize: 14,
-    color: '#E65100',
-    fontWeight: '500',
-    textAlign: 'center',
+  counterPillText: {
+    ...typography.caption,
+    color: palette.brandInk,
+    fontWeight: '700',
   },
-  unitSelector: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#1E68B8',
-    padding: 15,
-  },
-  unitSelectorContent: {
+
+  // ── Warning card (no units) ──────────────────────────────────────────────
+  warningCard: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: palette.warningSoft,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: palette.warningBase,
+    padding: spacing.lg,
+    ...elevation.level1,
   },
-  unitIcon: {
-    fontSize: 24,
-    marginRight: 12,
+  warningIcon: {
+    width: 32, height: 32,
+    borderRadius: radii.pill,
+    backgroundColor: palette.warningBase,
+    color: palette.inkInverse,
+    textAlign: 'center',
+    lineHeight: 32,
+    fontWeight: '900',
+    fontSize: 18,
   },
-  unitName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+  warningTitle: {
+    ...typography.bodyEmphasis,
+    color: palette.warningInk,
   },
-  unitType: {
-    fontSize: 12,
-    color: '#666',
+  warningText: {
+    ...typography.caption,
+    color: palette.warningInk,
+    opacity: 0.85,
     marginTop: 2,
   },
-  dropdownIcon: {
-    fontSize: 12,
-    color: '#1E68B8',
-  },
-  statusCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 15,
-    padding: 20,
-    marginBottom: 15,
+
+  // ── Unit selector ────────────────────────────────────────────────────────
+  unitSelector: {
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    borderColor: palette.borderHairline,
+    ...elevation.level2,
   },
-  statusTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#1E68B8',
-    marginBottom: 12,
+  unitSelectorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  // Tinted square instead of raw emoji floating in space
+  unitGlyph: {
+    width: 44, height: 44,
+    borderRadius: radii.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unitGlyphGeo: {
+    backgroundColor: palette.brandSoft,
+  },
+  unitGlyphRemote: {
+    backgroundColor: palette.warningSoft,
+  },
+  unitGlyphText: {
+    fontSize: 22,
+    color: palette.brandDeep,
+  },
+  unitName: {
+    ...typography.subtitle,
+    color: palette.inkStrong,
+  },
+  unitMeta: {
+    ...typography.caption,
+    color: palette.inkMuted,
+    marginTop: 2,
+  },
+  dropdownChevron: {
+    fontSize: 14,
+    color: palette.inkMuted,
+    paddingLeft: spacing.sm,
+  },
+
+  // ── Status card (today's punches) ────────────────────────────────────────
+  statusCard: {
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.xs, // 4 — micro-adjust so rows define their own padding
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
+    ...elevation.level1,
   },
   punchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 6,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: palette.borderHairline,
   },
-  punchIndex: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1E68B8',
-    width: 30,
+  punchRowLast: { borderBottomWidth: 0 },
+  punchIndexBadge: {
+    // 4px radius — micro-adjustment allowed inside dense atom
+    backgroundColor: palette.brandSoft,
+    borderRadius: radii.xs,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    minWidth: 36,
+    alignItems: 'center',
+  },
+  punchIndexText: {
+    ...typography.caption,
+    color: palette.brandInk,
+    fontWeight: '700',
   },
   punchTime: {
-    fontSize: 14,
-    color: '#333',
-    width: 100,
-  },
-  punchLocation: {
-    fontSize: 11,
-    color: '#999',
+    ...typography.bodyEmphasis,
+    color: palette.inkStrong,
     flex: 1,
   },
-  mapButton: {
-    backgroundColor: '#1E68B8',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 8,
+  punchNoLoc: {
+    ...typography.caption,
+    color: palette.inkSoft,
   },
-  mapButtonText: {
-    color: '#FFF',
-    fontSize: 11,
-    fontWeight: '600',
+  mapChip: {
+    backgroundColor: palette.brandDeep,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
   },
-  attendanceSection: {
+  mapChipText: {
+    ...typography.caption,
+    color: palette.inkInverse,
+    fontWeight: '700',
+  },
+
+  // ── Primary CTA — the punch circle (screen anchor) ───────────────────────
+  ctaSection: {
     alignItems: 'center',
-    marginVertical: 30,
+    marginVertical: spacing.xxl,
   },
-  attendanceCircle: {
-    width: 220,
-    height: 220,
-    borderRadius: 110,
-    backgroundColor: '#1E68B8',
+  ctaCircle: {
+    width: 240, height: 240,
+    borderRadius: radii.pill, // perfect circle via pill radius on equal sides
+    backgroundColor: palette.brandDeep,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#1E68B8',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    elevation: 10,
+    // Inset hairline gives a subtle inner edge that catches light → premium
+    borderWidth: 1,
+    borderColor: 'rgba(250, 250, 248, 0.08)',
+    // The strongest shadow on the screen — earned by being the anchor
+    ...elevation.level4,
   },
-  completedCircle: {
-    backgroundColor: '#4CAF50',
+  ctaCircleComplete: {
+    backgroundColor: palette.successBase,
   },
-  circleIcon: {
-    fontSize: 50,
-    marginBottom: 10,
+  ctaCircleDisabled: {
+    opacity: 0.55,
   },
-  circleTitle: {
-    fontSize: 24,
-    fontWeight: '600',
-    color: '#FFF',
-    marginBottom: 5,
+  ctaGlyph: {
+    // Optical centring: the ⌖ glyph reads slightly low — nudge it 4px upward
+    fontSize: 56,
+    color: palette.inkInverse,
+    marginBottom: spacing.sm,
+    marginTop: -4,
   },
-  circleSubtitle: {
-    fontSize: 13,
-    color: '#E0E0E0',
+  ctaGlyphComplete: {
+    fontSize: 64,
+    color: palette.inkInverse,
+    marginBottom: spacing.sm,
+    fontWeight: '300',
+  },
+  ctaTitle: {
+    ...typography.headline,
+    color: palette.inkInverse,
+    marginBottom: 4,
+  },
+  ctaSubtitle: {
+    ...typography.caption,
+    color: 'rgba(250, 250, 248, 0.78)',
     textAlign: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.lg,
   },
-  refreshButton: {
-    backgroundColor: '#FFF',
-    borderRadius: 25,
-    paddingVertical: 15,
+
+  // ── Secondary actions row ────────────────────────────────────────────────
+  secondaryActions: {
+    gap: spacing.md,
+  },
+  secondaryButton: {
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.lg,
     alignItems: 'center',
-    marginBottom: 15,
-    borderWidth: 2,
-    borderColor: '#1E68B8',
+    borderWidth: 1,
+    borderColor: palette.brandSoftBorder,
+    ...elevation.level1,
   },
-  refreshText: {
-    color: '#1E68B8',
-    fontSize: 16,
-    fontWeight: '600',
+  secondaryButtonText: {
+    ...typography.buttonLarge,
+    color: palette.brandDeep,
   },
-  historyButton: {
-    backgroundColor: '#1E68B8',
-    borderRadius: 25,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginBottom: 30,
-  },
-  historyButtonText: {
-    color: '#FFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  // Modal styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+  secondaryButtonFilled: {
+    flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: palette.brandDeep,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.lg,
+    gap: spacing.sm,
+    ...elevation.level2,
   },
-  modalContent: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 20,
-    width: '85%',
-    maxHeight: '70%',
+  secondaryButtonFilledText: {
+    ...typography.buttonLarge,
+    color: palette.inkInverse,
+  },
+  secondaryButtonChevron: {
+    color: palette.inkInverse,
+    fontSize: 20,
+    lineHeight: 20,
+    marginTop: -2, // optical alignment with the text baseline
+  },
+
+  // ── Modal: unit picker ───────────────────────────────────────────────────
+  modalScrim: {
+    flex: 1,
+    backgroundColor: palette.scrim,
+    justifyContent: 'flex-end',
+  },
+  modalSheet: {
+    backgroundColor: palette.surfaceElevated,
+    borderTopLeftRadius: radii.xxl,
+    borderTopRightRadius: radii.xxl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl,
+    maxHeight: '78%',
+    ...elevation.level4,
+  },
+  // Drag handle: subtle visual cue that this is a bottom sheet
+  modalHandle: {
+    width: 40, height: 4,
+    backgroundColor: palette.borderBase,
+    borderRadius: radii.pill,
+    alignSelf: 'center',
+    marginBottom: spacing.lg,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E68B8',
-    marginBottom: 20,
-    textAlign: 'center',
+    ...typography.title,
+    color: palette.inkStrong,
+    marginBottom: spacing.lg,
   },
   unitList: {
-    maxHeight: 400,
+    flexGrow: 0,
   },
-  unitItem: {
+  unitListItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 10,
+    gap: spacing.md,
+    backgroundColor: palette.surface,
+    // Nesting formula: outer sheet padding = 20, so inner items < 20 — radius 12
+    borderRadius: radii.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
   },
-  unitItemSelected: {
-    backgroundColor: '#E3F2FD',
-    borderWidth: 2,
-    borderColor: '#1E68B8',
+  unitListItemSelected: {
+    backgroundColor: palette.brandSoft,
+    borderColor: palette.brandDeep,
+    borderWidth: 1.5,
   },
-  unitItemIcon: {
-    fontSize: 24,
-    marginRight: 12,
-  },
-  unitItemName: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-  },
-  unitItemType: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  checkmark: {
+  unitSelectedTick: {
+    color: palette.brandDeep,
     fontSize: 20,
-    color: '#1E68B8',
-    fontWeight: 'bold',
+    fontWeight: '700',
   },
   modalCloseButton: {
-    backgroundColor: '#E0E0E0',
-    borderRadius: 10,
-    padding: 15,
-    marginTop: 15,
+    marginTop: spacing.lg,
+    backgroundColor: palette.canvasAlt,
+    borderRadius: radii.md,
+    paddingVertical: spacing.md,
     alignItems: 'center',
   },
   modalCloseButtonText: {
-    color: '#666',
-    fontSize: 16,
-    fontWeight: '600',
+    ...typography.button,
+    color: palette.inkBase,
+  },
+
+  // ── HR self-service tiles (Phase 2) ─────────────────────────────────────
+  menuRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.md,
+  },
+  menuTile: {
+    flex: 1,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
+    ...elevation.level1,
+  },
+  menuTileIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: radii.sm,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.sm,
+  },
+  menuTileGlyph: {
+    fontSize: 22,
+    fontWeight: '700',
+    marginTop: -2,
+  },
+  menuTileLabel: {
+    ...typography.bodyEmphasis,
+    color: palette.inkStrong,
+  },
+  menuTileHint: {
+    ...typography.caption,
+    color: palette.inkMuted,
+    marginTop: 2,
   },
 });

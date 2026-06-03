@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   StatusBar,
   ScrollView,
@@ -14,6 +13,15 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList, Unit } from '../types';
 import { api } from '../services/api';
+import {
+  palette,
+  spacing,
+  radii,
+  typography,
+  elevation,
+  KineticPressable,
+  QuietPressable,
+} from '../theme';
 
 type BranchPermissionsProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'BranchPermissions'>;
@@ -31,6 +39,7 @@ export const BranchPermissionsScreen: React.FC<BranchPermissionsProps> = ({
 }) => {
   const { user, token, employeeId, employeeName } = route.params;
 
+  // ─── Logic preserved verbatim ────────────────────────────────────────────
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [allUnits, setAllUnits] = useState<Unit[]>([]);
@@ -38,28 +47,20 @@ export const BranchPermissionsScreen: React.FC<BranchPermissionsProps> = ({
   const [allowedUnits, setAllowedUnits] = useState<AllowedUnitState[]>([]);
   const [showMainPicker, setShowMainPicker] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
+  useEffect(() => { loadData(); }, []);
 
   const loadData = async () => {
     try {
       setLoading(true);
-
-      // Fetch all units and existing permissions in parallel
       const [unitsRes, permsRes] = await Promise.all([
         api.getAdminUnits(token),
         api.getBranchPermissions(token, employeeId),
       ]);
 
-      if (unitsRes.success) {
-        setAllUnits(unitsRes.units);
-      }
+      if (unitsRes.success) setAllUnits(unitsRes.units);
 
       if (permsRes.success) {
         setMainUnitId(permsRes.main_unit_id);
-
-        // Build allowed units state from existing permissions
         if (permsRes.allowed_units && permsRes.allowed_units.length > 0) {
           setAllowedUnits(
             permsRes.allowed_units.map((au: any) => ({
@@ -77,15 +78,15 @@ export const BranchPermissionsScreen: React.FC<BranchPermissionsProps> = ({
   };
 
   const isUnitChecked = (unitId: number): boolean => {
-    const found = allowedUnits.find(au => au.unit_id === unitId);
+    const found = allowedUnits.find((au) => au.unit_id === unitId);
     return found ? found.is_active : false;
   };
 
   const toggleUnit = (unitId: number) => {
-    setAllowedUnits(prev => {
-      const existing = prev.find(au => au.unit_id === unitId);
+    setAllowedUnits((prev) => {
+      const existing = prev.find((au) => au.unit_id === unitId);
       if (existing) {
-        return prev.map(au =>
+        return prev.map((au) =>
           au.unit_id === unitId ? { ...au, is_active: !au.is_active } : au
         );
       }
@@ -101,10 +102,8 @@ export const BranchPermissionsScreen: React.FC<BranchPermissionsProps> = ({
 
     setSaving(true);
     try {
-      // Build the allowed_units array — include all units that have been toggled
-      // Also ensure main_unit_id is included as active
-      const finalAllowed: AllowedUnitState[] = allUnits.map(unit => {
-        const existing = allowedUnits.find(au => au.unit_id === unit.id);
+      const finalAllowed: AllowedUnitState[] = allUnits.map((unit) => {
+        const existing = allowedUnits.find((au) => au.unit_id === unit.id);
         return {
           unit_id: unit.id,
           is_active: existing ? existing.is_active : false,
@@ -119,7 +118,7 @@ export const BranchPermissionsScreen: React.FC<BranchPermissionsProps> = ({
       );
 
       if (response.success) {
-        Alert.alert('Success', response.message, [
+        Alert.alert('Saved', response.message, [
           { text: 'OK', onPress: () => navigation.goBack() },
         ]);
       }
@@ -131,72 +130,83 @@ export const BranchPermissionsScreen: React.FC<BranchPermissionsProps> = ({
   };
 
   const mainUnitName = mainUnitId
-    ? allUnits.find(u => u.id === mainUnitId)?.name || 'Unknown'
+    ? allUnits.find((u) => u.id === mainUnitId)?.name || 'Unknown'
     : 'Tap to select';
 
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
-        <StatusBar barStyle="light-content" backgroundColor="#1E68B8" />
-        <ActivityIndicator size="large" color="#1E68B8" />
-        <Text style={styles.loadingText}>Loading permissions...</Text>
+        <StatusBar barStyle="light-content" backgroundColor={palette.brandDeep} />
+        <ActivityIndicator size="large" color={palette.brandDeep} />
+        <Text style={styles.loadingText}>Loading permissions…</Text>
       </View>
     );
   }
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1E68B8" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.brandDeep} />
 
-      {/* Header */}
+      {/* ╭───── Header ─────╮ */}
       <View style={styles.header}>
-        <TouchableOpacity
+        <KineticPressable
           onPress={() => navigation.goBack()}
           style={styles.backButton}
+          accessibilityLabel="Go back"
         >
-          <Text style={styles.backText}>{'< Back'}</Text>
-        </TouchableOpacity>
+          <Text style={styles.backIcon}>←</Text>
+        </KineticPressable>
         <View style={{ flex: 1 }}>
-          <Text style={styles.headerTitle}>Branch Permissions</Text>
-          <Text style={styles.headerSubtitle}>{employeeName}</Text>
+          <Text style={styles.headerTitle}>Branch permissions</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>
+            {employeeName}
+          </Text>
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Primary Office Section */}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentInner}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ╭───── Primary office section ─────╮ */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Primary Office</Text>
+          <Text style={styles.sectionLabel}>Primary office</Text>
           <Text style={styles.sectionHint}>
-            The employee's main branch/office location.
+            The employee's main branch — required to save permissions.
           </Text>
-          <TouchableOpacity
+          <KineticPressable
             style={styles.mainUnitSelector}
             onPress={() => setShowMainPicker(true)}
+            accessibilityLabel={`Primary office: ${mainUnitName}, tap to change`}
           >
-            <Text style={styles.mainUnitIcon}>🏢</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.mainUnitLabel}>Main Branch</Text>
-              <Text style={styles.mainUnitValue}>{mainUnitName}</Text>
+            <View style={styles.unitGlyph}>
+              <Text style={styles.unitGlyphText}>⌖</Text>
             </View>
-            <Text style={styles.dropdownArrow}>▼</Text>
-          </TouchableOpacity>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.mainUnitLabel}>Main branch</Text>
+              <Text style={styles.mainUnitValue} numberOfLines={1}>
+                {mainUnitName}
+              </Text>
+            </View>
+            <Text style={styles.dropdownChevron}>▾</Text>
+          </KineticPressable>
         </View>
 
-        {/* Additional Punch Access Section */}
+        {/* ╭───── Additional access section ─────╮ */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Additional Punch Access</Text>
+          <Text style={styles.sectionLabel}>Additional punch access</Text>
           <Text style={styles.sectionHint}>
-            Check the boxes to grant the employee permission to punch in from
-            these locations. Uncheck to revoke.
+            Tap a row to toggle whether the employee may punch from that location.
           </Text>
 
-          {allUnits.map(unit => {
+          {allUnits.map((unit) => {
             const checked = isUnitChecked(unit.id);
             const isMain = unit.id === mainUnitId;
             const isWfhOrField = !unit.is_geofenced;
 
             return (
-              <TouchableOpacity
+              <QuietPressable
                 key={unit.id}
                 style={[
                   styles.unitRow,
@@ -204,9 +214,11 @@ export const BranchPermissionsScreen: React.FC<BranchPermissionsProps> = ({
                   isMain && styles.unitRowMain,
                 ]}
                 onPress={() => toggleUnit(unit.id)}
-                activeOpacity={0.7}
+                accessibilityRole="checkbox"
+                accessibilityState={{ selected: checked }}
+                accessibilityLabel={`${unit.name}, ${checked ? 'allowed' : 'not allowed'}${isMain ? ', primary' : ''}`}
               >
-                {/* Checkbox */}
+                {/* Checkbox: micro radius 4 inside a 14px-padded card → inner = 4 */}
                 <View
                   style={[
                     styles.checkbox,
@@ -216,86 +228,91 @@ export const BranchPermissionsScreen: React.FC<BranchPermissionsProps> = ({
                   {checked && <Text style={styles.checkmark}>✓</Text>}
                 </View>
 
-                {/* Unit info */}
                 <View style={{ flex: 1 }}>
                   <View style={styles.unitNameRow}>
-                    <Text style={styles.unitName}>{unit.name}</Text>
+                    <Text style={styles.unitName} numberOfLines={1}>
+                      {unit.name}
+                    </Text>
                     {isMain && (
-                      <View style={styles.mainBadge}>
-                        <Text style={styles.mainBadgeText}>PRIMARY</Text>
+                      <View style={styles.tagPrimary}>
+                        <Text style={styles.tagPrimaryText}>PRIMARY</Text>
                       </View>
                     )}
                     {isWfhOrField && (
-                      <View style={styles.wfhBadge}>
-                        <Text style={styles.wfhBadgeText}>No Geofence</Text>
+                      <View style={styles.tagWfh}>
+                        <Text style={styles.tagWfhText}>NO GEO</Text>
                       </View>
                     )}
                   </View>
-                  <Text style={styles.unitDetail}>
+                  <Text style={styles.unitDetail} numberOfLines={1}>
                     {unit.is_geofenced
-                      ? `📍 ${unit.latitude}, ${unit.longitude}`
-                      : '🏠 Remote / Field'}
+                      ? `${unit.latitude}, ${unit.longitude}`
+                      : 'Remote / field work'}
                   </Text>
                 </View>
-              </TouchableOpacity>
+              </QuietPressable>
             );
           })}
         </View>
 
-        {/* Save Button */}
-        <TouchableOpacity
+        {/* ╭───── Save CTA ─────╮ */}
+        <KineticPressable
           style={[styles.saveButton, saving && styles.saveButtonDisabled]}
           onPress={handleSave}
           disabled={saving}
+          accessibilityLabel="Save branch permissions"
         >
           {saving ? (
-            <ActivityIndicator color="#FFF" />
+            <ActivityIndicator color={palette.inkInverse} />
           ) : (
-            <Text style={styles.saveButtonText}>Save Branch Permissions</Text>
+            <Text style={styles.saveButtonText}>Save permissions</Text>
           )}
-        </TouchableOpacity>
+        </KineticPressable>
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: spacing['4xl'] }} />
       </ScrollView>
 
-      {/* Main Unit Picker Modal */}
+      {/* ╭───── Main unit picker modal ─────╮ */}
       <Modal
         visible={showMainPicker}
-        transparent={true}
-        animationType="slide"
+        transparent
+        animationType="fade"
         onRequestClose={() => setShowMainPicker(false)}
       >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Select Primary Office</Text>
-            <ScrollView style={{ maxHeight: 400 }}>
+        <View style={styles.modalScrim}>
+          <View style={styles.modalSheet}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Select primary office</Text>
+            <ScrollView style={{ maxHeight: 420 }} showsVerticalScrollIndicator={false}>
               {allUnits
-                .filter(u => !!u.is_geofenced)
-                .map(unit => (
-                  <TouchableOpacity
-                    key={unit.id}
-                    style={[
-                      styles.modalOption,
-                      mainUnitId === unit.id && styles.modalOptionSelected,
-                    ]}
-                    onPress={() => {
-                      setMainUnitId(unit.id);
-                      setShowMainPicker(false);
-                    }}
-                  >
-                    <Text style={styles.modalOptionText}>{unit.name}</Text>
-                    {mainUnitId === unit.id && (
-                      <Text style={styles.modalCheckmark}>✓</Text>
-                    )}
-                  </TouchableOpacity>
-                ))}
+                .filter((u) => !!u.is_geofenced)
+                .map((unit) => {
+                  const isSelected = mainUnitId === unit.id;
+                  return (
+                    <QuietPressable
+                      key={unit.id}
+                      style={[
+                        styles.modalOption,
+                        isSelected && styles.modalOptionSelected,
+                      ]}
+                      onPress={() => {
+                        setMainUnitId(unit.id);
+                        setShowMainPicker(false);
+                      }}
+                      accessibilityState={{ selected: isSelected }}
+                    >
+                      <Text style={styles.modalOptionText}>{unit.name}</Text>
+                      {isSelected && <Text style={styles.modalCheckmark}>✓</Text>}
+                    </QuietPressable>
+                  );
+                })}
             </ScrollView>
-            <TouchableOpacity
+            <KineticPressable
               style={styles.modalCloseBtn}
               onPress={() => setShowMainPicker(false)}
             >
               <Text style={styles.modalCloseBtnText}>Close</Text>
-            </TouchableOpacity>
+            </KineticPressable>
           </View>
         </View>
       </Modal>
@@ -304,179 +321,246 @@ export const BranchPermissionsScreen: React.FC<BranchPermissionsProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
-  centerContent: { justifyContent: 'center', alignItems: 'center' },
-  loadingText: { marginTop: 10, color: '#666', fontSize: 16 },
+  container: { flex: 1, backgroundColor: palette.canvas },
+  centerContent: { justifyContent: 'center', alignItems: 'center', gap: spacing.md },
+  loadingText: { ...typography.caption, color: palette.inkMuted },
 
+  // ── Header ───────────────────────────────────────────────────────────────
   header: {
-    backgroundColor: '#1E68B8',
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    backgroundColor: palette.brandDeep,
+    paddingTop: 52,
+    paddingBottom: spacing.xxl,
+    paddingHorizontal: spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
+    borderBottomLeftRadius: radii.xxl,
+    borderBottomRightRadius: radii.xxl,
+    ...elevation.level2,
   },
   backButton: {
-    marginRight: 15,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 15,
+    width: 44, height: 44,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(250, 250, 248, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(250, 250, 248, 0.20)',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  backText: { color: '#FFF', fontSize: 14, fontWeight: '600' },
-  headerTitle: { fontSize: 18, fontWeight: '600', color: '#FFF' },
-  headerSubtitle: { fontSize: 12, color: '#B3D9FF', marginTop: 2 },
+  backIcon: {
+    fontSize: 22,
+    color: palette.inkInverse,
+    fontWeight: '600',
+    marginLeft: -1,
+  },
+  headerTitle: { ...typography.title, color: palette.inkInverse },
+  headerSubtitle: {
+    ...typography.caption,
+    color: 'rgba(250, 250, 248, 0.78)',
+    marginTop: 2,
+  },
 
-  content: { flex: 1, paddingHorizontal: 20, paddingTop: 20 },
+  // ── Body ─────────────────────────────────────────────────────────────────
+  content: { flex: 1 },
+  contentInner: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing['4xl'],
+  },
 
-  section: { marginBottom: 25 },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1E68B8',
-    marginBottom: 6,
+  // ── Sections ─────────────────────────────────────────────────────────────
+  section: { marginBottom: spacing.xxl },
+  sectionLabel: {
+    ...typography.overline,
+    color: palette.inkMuted,
+    marginBottom: spacing.xs,
   },
   sectionHint: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 14,
-    lineHeight: 18,
+    ...typography.caption,
+    color: palette.inkMuted,
+    marginBottom: spacing.md,
+    // 1.5 line-height makes multi-line hints comfortably scannable
   },
 
-  // Main unit selector
+  // ── Main unit selector ───────────────────────────────────────────────────
   mainUnitSelector: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    borderWidth: 2,
-    borderColor: '#1E68B8',
-    padding: 16,
+    gap: spacing.md,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    borderWidth: 1,
+    borderColor: palette.brandSoftBorder,
+    padding: spacing.lg,
+    ...elevation.level2,
   },
-  mainUnitIcon: { fontSize: 24, marginRight: 12 },
-  mainUnitLabel: { fontSize: 11, color: '#999', fontWeight: '500' },
-  mainUnitValue: { fontSize: 16, color: '#333', fontWeight: '600', marginTop: 2 },
-  dropdownArrow: { fontSize: 12, color: '#1E68B8' },
+  unitGlyph: {
+    width: 44, height: 44,
+    borderRadius: radii.md,
+    backgroundColor: palette.brandSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unitGlyphText: { fontSize: 22, color: palette.brandDeep },
+  mainUnitLabel: {
+    ...typography.overline,
+    color: palette.inkMuted,
+  },
+  mainUnitValue: {
+    ...typography.subtitle,
+    color: palette.inkStrong,
+    marginTop: 2,
+  },
+  dropdownChevron: {
+    fontSize: 14,
+    color: palette.inkMuted,
+  },
 
-  // Unit rows (checkboxes)
+  // ── Unit rows (checkboxes) ───────────────────────────────────────────────
   unitRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
+    gap: spacing.md,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    padding: spacing.md,            // 12 padding → inner checkbox radius = 4
+    marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: palette.borderHairline,
+    ...elevation.level1,
   },
   unitRowChecked: {
-    backgroundColor: '#E8F5E9',
-    borderColor: '#4CAF50',
-    borderWidth: 2,
+    backgroundColor: palette.successSoft,
+    borderColor: palette.successBase,
+    borderWidth: 1.5,
   },
   unitRowMain: {
-    borderColor: '#1E68B8',
+    borderColor: palette.brandDeep,
+    borderWidth: 1.5,
   },
 
   checkbox: {
-    width: 26,
-    height: 26,
-    borderRadius: 6,
-    borderWidth: 2,
-    borderColor: '#CCC',
-    marginRight: 14,
+    width: 24, height: 24,
+    // Inner radius: outer 16 - padding 12 = 4 (nesting formula)
+    borderRadius: radii.xs,
+    borderWidth: 1.5,
+    borderColor: palette.inkMuted,
     alignItems: 'center',
     justifyContent: 'center',
   },
   checkboxChecked: {
-    backgroundColor: '#4CAF50',
-    borderColor: '#4CAF50',
+    backgroundColor: palette.successBase,
+    borderColor: palette.successBase,
   },
-  checkmark: { color: '#FFF', fontSize: 16, fontWeight: 'bold' },
+  checkmark: { color: palette.inkInverse, fontSize: 14, fontWeight: '700' },
 
   unitNameRow: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
+    gap: spacing.sm,
     marginBottom: 4,
   },
-  unitName: { fontSize: 15, fontWeight: '600', color: '#333', marginRight: 8 },
-  mainBadge: {
-    backgroundColor: '#E3F2FD',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    marginRight: 6,
+  unitName: {
+    ...typography.bodyEmphasis,
+    color: palette.inkStrong,
+    flexShrink: 1,
   },
-  mainBadgeText: { fontSize: 9, fontWeight: '700', color: '#1E68B8' },
-  wfhBadge: {
-    backgroundColor: '#FFF3E0',
-    paddingHorizontal: 8,
+  tagPrimary: {
+    backgroundColor: palette.brandSoft,
+    paddingHorizontal: spacing.sm,
     paddingVertical: 2,
-    borderRadius: 6,
+    borderRadius: radii.xs,
   },
-  wfhBadgeText: { fontSize: 9, fontWeight: '700', color: '#E65100' },
-  unitDetail: { fontSize: 12, color: '#888' },
+  tagPrimaryText: {
+    ...typography.overline,
+    color: palette.brandInk,
+    fontSize: 9,
+    letterSpacing: 0.8,
+  },
+  tagWfh: {
+    backgroundColor: palette.warningSoft,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radii.xs,
+  },
+  tagWfhText: {
+    ...typography.overline,
+    color: palette.warningInk,
+    fontSize: 9,
+    letterSpacing: 0.8,
+  },
+  unitDetail: {
+    ...typography.caption,
+    color: palette.inkMuted,
+    fontFamily: 'monospace',
+  },
 
-  // Save button
+  // ── Save button ──────────────────────────────────────────────────────────
   saveButton: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 25,
-    paddingVertical: 16,
+    backgroundColor: palette.successBase,
+    borderRadius: radii.lg,
+    paddingVertical: spacing.lg,
     alignItems: 'center',
-    marginTop: 10,
-    shadowColor: '#4CAF50',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 6,
+    marginTop: spacing.md,
+    ...elevation.level3,
   },
-  saveButtonDisabled: { opacity: 0.6 },
-  saveButtonText: { color: '#FFF', fontSize: 17, fontWeight: '700' },
+  saveButtonDisabled: { opacity: 0.55 },
+  saveButtonText: { ...typography.buttonLarge, color: palette.inkInverse },
 
-  // Modal
-  modalOverlay: {
+  // ── Modal ────────────────────────────────────────────────────────────────
+  modalScrim: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: palette.scrim,
+    justifyContent: 'flex-end',
   },
-  modalContent: {
-    backgroundColor: '#FFF',
-    borderRadius: 20,
-    padding: 20,
-    width: '85%',
-    maxHeight: '70%',
+  modalSheet: {
+    backgroundColor: palette.surfaceElevated,
+    borderTopLeftRadius: radii.xxl,
+    borderTopRightRadius: radii.xxl,
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.md,
+    paddingBottom: spacing.xxl,
+    maxHeight: '78%',
+    ...elevation.level4,
+  },
+  modalHandle: {
+    width: 40, height: 4,
+    backgroundColor: palette.borderBase,
+    borderRadius: radii.pill,
+    alignSelf: 'center',
+    marginBottom: spacing.lg,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#1E68B8',
-    marginBottom: 15,
-    textAlign: 'center',
+    ...typography.title,
+    color: palette.inkStrong,
+    marginBottom: spacing.lg,
   },
   modalOption: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 8,
+    backgroundColor: palette.surface,
+    borderRadius: radii.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    marginBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: palette.borderHairline,
   },
   modalOptionSelected: {
-    backgroundColor: '#E3F2FD',
-    borderWidth: 2,
-    borderColor: '#1E68B8',
+    backgroundColor: palette.brandSoft,
+    borderColor: palette.brandDeep,
+    borderWidth: 1.5,
   },
-  modalOptionText: { fontSize: 15, color: '#333', fontWeight: '500' },
-  modalCheckmark: { fontSize: 18, color: '#1E68B8', fontWeight: 'bold' },
+  modalOptionText: { ...typography.body, color: palette.inkStrong },
+  modalCheckmark: { fontSize: 18, color: palette.brandDeep, fontWeight: '700' },
   modalCloseBtn: {
-    backgroundColor: '#E0E0E0',
-    borderRadius: 10,
-    padding: 12,
+    backgroundColor: palette.canvasAlt,
+    borderRadius: radii.md,
+    paddingVertical: spacing.md,
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: spacing.md,
   },
-  modalCloseBtnText: { color: '#666', fontSize: 14, fontWeight: '600' },
+  modalCloseBtnText: { ...typography.button, color: palette.inkBase },
 });

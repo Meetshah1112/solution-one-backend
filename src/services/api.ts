@@ -221,4 +221,200 @@ export const api = {
       handleError(error, 'Failed to update unit');
     }
   },
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Leave management
+  // ────────────────────────────────────────────────────────────────────────
+  getLeaveTypes: async (token: string) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/leave/types`, authHeaders(token));
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load leave types');
+    }
+  },
+
+  getLeaveBalance: async (token: string) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/leave/balance`, authHeaders(token));
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load leave balance');
+    }
+  },
+
+  applyLeave: async (
+    token: string,
+    data: {
+      leave_master_id: number;
+      from_date: string;
+      to_date: string;
+      day_type: 'FullDay' | 'HalfDay' | 'QuarterDay';
+      half_day?: string | null;
+      reason?: string | null;
+    },
+  ) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/leave/apply`, data, authHeaders(token));
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to apply for leave');
+    }
+  },
+
+  getMyLeaves: async (token: string) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/leave/my`, authHeaders(token));
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load my leaves');
+    }
+  },
+
+  cancelLeave: async (token: string, leaveId: number) => {
+    try {
+      const response = await axios.delete(`${API_BASE_URL}/leave/${leaveId}`, authHeaders(token));
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to cancel leave');
+    }
+  },
+
+  // Admin
+  getPendingLeaves: async (token: string, status: string = 'Pending') => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/admin/leave/pending?status=${status}`,
+        authHeaders(token),
+      );
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load pending leaves');
+    }
+  },
+
+  decideLeave: async (
+    token: string,
+    leaveId: number,
+    decision: 'Approved' | 'Rejected',
+    comment?: string,
+  ) => {
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/admin/leave/${leaveId}/decide`,
+        { decision, comment },
+        authHeaders(token),
+      );
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to update leave decision');
+    }
+  },
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Attendance adjustment
+  // ────────────────────────────────────────────────────────────────────────
+  applyAdjustment: async (
+    token: string,
+    data: {
+      type: 'MissedPunch' | 'WrongPunch' | 'OnDuty' | 'WFH';
+      attendence_date: string;
+      in_time?: string | null;
+      out_time?: string | null;
+      reason: string;
+    },
+  ) => {
+    try {
+      const response = await axios.post(`${API_BASE_URL}/adjustment/apply`, data, authHeaders(token));
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to submit adjustment');
+    }
+  },
+
+  getMyAdjustments: async (token: string) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/adjustment/my`, authHeaders(token));
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load adjustments');
+    }
+  },
+
+  getPendingAdjustments: async (token: string, status: string = 'Pending') => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/admin/adjustment/pending?status=${status}`,
+        authHeaders(token),
+      );
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load pending adjustments');
+    }
+  },
+
+  decideAdjustment: async (
+    token: string,
+    adjustmentId: number,
+    decision: 'Approved' | 'Rejected',
+    comment?: string,
+  ) => {
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/admin/adjustment/${adjustmentId}/decide`,
+        { decision, comment },
+        authHeaders(token),
+      );
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to update adjustment decision');
+    }
+  },
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Salary slip
+  // ────────────────────────────────────────────────────────────────────────
+  getSalaryMonths: async (token: string) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/salary/months`, authHeaders(token));
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load salary months');
+    }
+  },
+
+  getSalarySlip: async (token: string, slipId: number) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/salary/slip/${slipId}`, authHeaders(token));
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load salary slip');
+    }
+  },
+
+  // Server-rendered printable HTML — the mobile app pipes this into
+  // expo-print to produce a PDF identical in layout to the web portal slip.
+  getSalarySlipHtml: async (token: string, slipId: number) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/salary/slip/${slipId}/html`, authHeaders(token));
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load salary slip HTML');
+    }
+  },
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Reports
+  // ────────────────────────────────────────────────────────────────────────
+  getReports: async (token: string, category?: string) => {
+    try {
+      const url = category
+        ? `${API_BASE_URL}/admin/reports?category=${encodeURIComponent(category)}`
+        : `${API_BASE_URL}/admin/reports`;
+      const response = await axios.get(url, authHeaders(token));
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load reports');
+    }
+  },
 };

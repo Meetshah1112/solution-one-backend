@@ -2,7 +2,6 @@ import React from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   StatusBar,
   ScrollView,
@@ -12,11 +11,26 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { RouteProp } from '@react-navigation/native';
 import { RootStackParamList } from '../types';
+import {
+  palette,
+  spacing,
+  radii,
+  typography,
+  elevation,
+  KineticPressable,
+} from '../theme';
 
 type AttendanceLocationDetailProps = {
   navigation: NativeStackNavigationProp<RootStackParamList, 'AttendanceLocationDetail'>;
   route: RouteProp<RootStackParamList, 'AttendanceLocationDetail'>;
 };
+
+/* ────────────────────────────────────────────────────────────────────────────
+ * AttendanceLocationDetailScreen — legacy single-record detail view (not
+ * currently routed in App.tsx — superseded by EmployeeDetailScreen for the
+ * 14-punch model). Refactored to match the new design system so it slots in
+ * cleanly if reactivated.
+ * ──────────────────────────────────────────────────────────────────────────── */
 
 export const AttendanceLocationDetailScreen: React.FC<AttendanceLocationDetailProps> = ({
   navigation,
@@ -24,191 +38,150 @@ export const AttendanceLocationDetailScreen: React.FC<AttendanceLocationDetailPr
 }) => {
   const { record, employeeName } = route.params;
 
-  // The backend returns check-in coords as "latitude"/"longitude" 
-  // and check-out coords as "check_out_latitude"/"check_out_longitude"
-  // Also handle the alias "check_in_latitude"/"check_in_longitude" from history endpoint
+  // Coord fallbacks across two API shapes — preserved verbatim
   const checkInLat = record.check_in_latitude ?? record.latitude ?? null;
   const checkInLng = record.check_in_longitude ?? record.longitude ?? null;
   const checkOutLat = record.check_out_latitude ?? null;
   const checkOutLng = record.check_out_longitude ?? null;
 
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
+  const formatDate = (dateString: string) =>
+    new Date(dateString).toLocaleDateString('en-US', {
       weekday: 'long',
       month: 'long',
       day: 'numeric',
       year: 'numeric',
     });
-  };
 
   const formatTime = (dateTime: string) => {
     if (!dateTime) return 'N/A';
-    const date = new Date(dateTime);
-    return date.toLocaleTimeString('en-US', {
+    return new Date(dateTime).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
     });
   };
 
-  const getStatusColor = (status: string) => {
+  const statusTheme = (status: string) => {
     switch (status) {
       case 'present':
-        return '#4CAF50';
+        return { bg: palette.successSoft, ink: palette.successInk, label: 'On time' };
       case 'late':
-        return '#FF9800';
+        return { bg: palette.warningSoft, ink: palette.warningInk, label: 'Late' };
       case 'absent':
-        return '#D32F2F';
+        return { bg: palette.dangerSoft, ink: palette.dangerInk, label: 'Absent' };
       default:
-        return '#666';
+        return { bg: palette.canvasAlt, ink: palette.inkMuted, label: status };
     }
   };
 
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'present':
-        return 'On Time';
-      case 'late':
-        return 'Late';
-      case 'absent':
-        return 'Absent';
-      default:
-        return status;
-    }
-  };
-
-  const openInGoogleMaps = (lat: number, lng: number, label: string) => {
+  const openInGoogleMaps = (lat: number, lng: number) => {
     const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
     Linking.canOpenURL(url)
       .then((supported) => {
-        if (supported) {
-          Linking.openURL(url);
-        } else {
-          Alert.alert('Error', 'Unable to open Google Maps');
-        }
+        if (supported) Linking.openURL(url);
+        else Alert.alert('Error', 'Unable to open Google Maps');
       })
       .catch(() => Alert.alert('Error', 'Unable to open Google Maps'));
   };
 
   const hasCheckInCoords = checkInLat != null && checkInLng != null;
   const hasCheckOutCoords = checkOutLat != null && checkOutLng != null;
+  const status = statusTheme(record.status);
 
   return (
     <View style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#1E68B8" />
+      <StatusBar barStyle="light-content" backgroundColor={palette.brandDeep} />
 
-      {/* Header */}
+      {/* ╭───── Header ─────╮ */}
       <View style={styles.header}>
-        <TouchableOpacity
+        <KineticPressable
           style={styles.backButton}
           onPress={() => navigation.goBack()}
+          accessibilityLabel="Go back"
         >
           <Text style={styles.backIcon}>←</Text>
-        </TouchableOpacity>
+        </KineticPressable>
         <View style={styles.headerInfo}>
-          <Text style={styles.headerTitle}>Attendance Details</Text>
-          <Text style={styles.headerSubtitle}>{employeeName}</Text>
+          <Text style={styles.headerTitle}>Attendance details</Text>
+          <Text style={styles.headerSubtitle} numberOfLines={1}>
+            {employeeName}
+          </Text>
         </View>
       </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Date & Status Card */}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.contentInner}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* ╭───── Date + status pill ─────╮ */}
         <View style={styles.dateCard}>
-          <Text style={styles.dateText}>{formatDate(record.date)}</Text>
-          <View
-            style={[
-              styles.statusBadge,
-              { backgroundColor: getStatusColor(record.status) },
-            ]}
-          >
-            <Text style={styles.statusBadgeText}>
-              {getStatusLabel(record.status)}
+          <View style={{ flex: 1 }}>
+            <Text style={styles.dateOverline}>Date</Text>
+            <Text style={styles.dateText}>{formatDate(record.date)}</Text>
+          </View>
+          <View style={[styles.statusPill, { backgroundColor: status.bg }]}>
+            <Text style={[styles.statusPillText, { color: status.ink }]}>
+              {status.label}
             </Text>
           </View>
         </View>
 
-        {/* Check-In Section */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.sectionDot, { backgroundColor: '#4CAF50' }]} />
-            <Text style={styles.sectionTitle}>Check-In</Text>
-          </View>
-
-          <View style={styles.timeRow}>
-            <Text style={styles.label}>Time</Text>
-            <Text style={styles.value}>
-              {formatTime(record.check_in_time)}
-            </Text>
-          </View>
+        {/* ╭───── Check-in section ─────╮ */}
+        <SectionCard
+          title="Check-in"
+          dotColor={palette.successBase}
+        >
+          <DetailRow label="Time" value={formatTime(record.check_in_time)} />
 
           {hasCheckInCoords ? (
             <>
-              <View style={styles.coordsRow}>
-                <Text style={styles.label}>Coordinates</Text>
-                <Text style={styles.coordsValue}>
-                  {Number(checkInLat).toFixed(6)}, {Number(checkInLng).toFixed(6)}
-                </Text>
-              </View>
-
-              <TouchableOpacity
-                style={styles.mapButton}
-                onPress={() =>
-                  openInGoogleMaps(checkInLat, checkInLng, 'Check-In Location')
-                }
+              <DetailRow
+                label="Coordinates"
+                value={`${Number(checkInLat).toFixed(6)}, ${Number(checkInLng).toFixed(6)}`}
+                mono
+              />
+              <KineticPressable
+                style={[styles.mapButton, { backgroundColor: palette.successBase }]}
+                onPress={() => openInGoogleMaps(checkInLat, checkInLng)}
+                accessibilityLabel="View check-in location on map"
               >
-                <Text style={styles.mapButtonIcon}>📍</Text>
-                <Text style={styles.mapButtonText}>
-                  View Check-In Location on Map
-                </Text>
-              </TouchableOpacity>
+                <Text style={styles.mapButtonText}>View on map</Text>
+              </KineticPressable>
             </>
           ) : (
-            <View style={styles.noCoordsRow}>
-              <Text style={styles.noCoordsText}>
-                Location data not available
-              </Text>
-            </View>
+            <Text style={styles.noCoordsText}>Location data not available</Text>
           )}
-        </View>
+        </SectionCard>
 
-        {/* Check-Out Section */}
-        <View style={styles.sectionCard}>
-          <View style={styles.sectionHeader}>
-            <View style={[styles.sectionDot, { backgroundColor: '#D32F2F' }]} />
-            <Text style={styles.sectionTitle}>Check-Out</Text>
-          </View>
-
+        {/* ╭───── Check-out section ─────╮ */}
+        <SectionCard
+          title="Check-out"
+          dotColor={palette.dangerBase}
+        >
           {record.check_out_time ? (
             <>
-              <View style={styles.timeRow}>
-                <Text style={styles.label}>Time</Text>
-                <Text style={styles.value}>
-                  {formatTime(record.check_out_time)}
-                </Text>
-              </View>
+              <DetailRow label="Time" value={formatTime(record.check_out_time)} />
 
               {hasCheckOutCoords ? (
                 <>
-                  <View style={styles.coordsRow}>
-                    <Text style={styles.label}>Coordinates</Text>
-                    <Text style={styles.coordsValue}>
-                      {Number(checkOutLat).toFixed(6)},{' '}
-                      {Number(checkOutLng).toFixed(6)}
-                    </Text>
-                  </View>
+                  <DetailRow
+                    label="Coordinates"
+                    value={`${Number(checkOutLat).toFixed(6)}, ${Number(checkOutLng).toFixed(6)}`}
+                    mono
+                  />
 
                   {record.checkout_within_geofence !== null &&
                     record.checkout_within_geofence !== undefined && (
-                      <View style={styles.geofenceRow}>
-                        <Text style={styles.label}>Geofence</Text>
+                      <View style={styles.detailRow}>
+                        <Text style={styles.detailLabel}>Geofence</Text>
                         <View
                           style={[
                             styles.geofenceBadge,
                             {
                               backgroundColor: record.checkout_within_geofence
-                                ? '#E8F5E9'
-                                : '#FFEBEE',
+                                ? palette.successSoft
+                                : palette.dangerSoft,
                             },
                           ]}
                         >
@@ -217,246 +190,262 @@ export const AttendanceLocationDetailScreen: React.FC<AttendanceLocationDetailPr
                               styles.geofenceBadgeText,
                               {
                                 color: record.checkout_within_geofence
-                                  ? '#2E7D32'
-                                  : '#C62828',
+                                  ? palette.successInk
+                                  : palette.dangerInk,
                               },
                             ]}
                           >
-                            {record.checkout_within_geofence
-                              ? '✓ Within Office Area'
-                              : '✕ Outside Office Area'}
+                            {record.checkout_within_geofence ? '✓ Inside' : '✕ Outside'}
                           </Text>
                         </View>
                       </View>
                     )}
 
-                  <TouchableOpacity
-                    style={[styles.mapButton, { backgroundColor: '#D32F2F' }]}
-                    onPress={() =>
-                      openInGoogleMaps(
-                        checkOutLat,
-                        checkOutLng,
-                        'Check-Out Location'
-                      )
-                    }
+                  <KineticPressable
+                    style={[styles.mapButton, { backgroundColor: palette.dangerBase }]}
+                    onPress={() => openInGoogleMaps(checkOutLat, checkOutLng)}
+                    accessibilityLabel="View check-out location on map"
                   >
-                    <Text style={styles.mapButtonIcon}>📍</Text>
-                    <Text style={styles.mapButtonText}>
-                      View Check-Out Location on Map
-                    </Text>
-                  </TouchableOpacity>
+                    <Text style={styles.mapButtonText}>View on map</Text>
+                  </KineticPressable>
                 </>
               ) : (
-                <View style={styles.noCoordsRow}>
-                  <Text style={styles.noCoordsText}>
-                    Location data not available
-                  </Text>
-                </View>
+                <Text style={styles.noCoordsText}>Location data not available</Text>
               )}
             </>
           ) : (
-            <View style={styles.noCoordsRow}>
-              <Text style={styles.noCoordsText}>Not checked out yet</Text>
-            </View>
+            <Text style={styles.noCoordsText}>Not checked out yet</Text>
           )}
-        </View>
+        </SectionCard>
 
-        {/* Duration */}
+        {/* ╭───── Duration tile ─────╮ */}
         {record.duration_minutes != null && (
           <View style={styles.durationCard}>
-            <Text style={styles.durationLabel}>Total Duration</Text>
+            <Text style={styles.durationLabel}>Total duration</Text>
             <Text style={styles.durationValue}>
-              {Math.floor(record.duration_minutes / 60)}h{' '}
-              {record.duration_minutes % 60}m
+              {Math.floor(record.duration_minutes / 60)}
+              <Text style={styles.durationUnit}>h </Text>
+              {record.duration_minutes % 60}
+              <Text style={styles.durationUnit}>m</Text>
             </Text>
           </View>
         )}
+
+        <View style={{ height: spacing['4xl'] }} />
       </ScrollView>
     </View>
   );
 };
 
+/* ── Atoms ─────────────────────────────────────────────────────────────────── */
+const SectionCard: React.FC<{
+  title: string;
+  dotColor: string;
+  children: React.ReactNode;
+}> = ({ title, dotColor, children }) => (
+  <View style={styles.sectionCard}>
+    <View style={styles.sectionHeader}>
+      <View style={[styles.sectionDot, { backgroundColor: dotColor }]} />
+      <Text style={styles.sectionTitle}>{title}</Text>
+    </View>
+    {children}
+  </View>
+);
+
+const DetailRow: React.FC<{
+  label: string;
+  value: string;
+  mono?: boolean;
+}> = ({ label, value, mono }) => (
+  <View style={styles.detailRow}>
+    <Text style={styles.detailLabel}>{label}</Text>
+    <Text style={[styles.detailValue, mono && styles.detailValueMono]}>{value}</Text>
+  </View>
+);
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F5F5F5',
-  },
+  container: { flex: 1, backgroundColor: palette.canvas },
+
+  // ── Header ───────────────────────────────────────────────────────────────
   header: {
-    backgroundColor: '#1E68B8',
-    paddingTop: 50,
-    paddingBottom: 20,
-    paddingHorizontal: 20,
+    backgroundColor: palette.brandDeep,
+    paddingTop: 52,
+    paddingBottom: spacing.xxl,
+    paddingHorizontal: spacing.xl,
     flexDirection: 'row',
     alignItems: 'center',
+    gap: spacing.md,
+    borderBottomLeftRadius: radii.xxl,
+    borderBottomRightRadius: radii.xxl,
+    ...elevation.level2,
   },
   backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    width: 44, height: 44,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(250, 250, 248, 0.16)',
+    borderWidth: 1,
+    borderColor: 'rgba(250, 250, 248, 0.20)',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
   },
   backIcon: {
-    fontSize: 24,
-    color: '#FFF',
+    fontSize: 22,
+    color: palette.inkInverse,
     fontWeight: '600',
+    marginLeft: -1,
   },
-  headerInfo: {
-    flex: 1,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#FFF',
-  },
+  headerInfo: { flex: 1 },
+  headerTitle: { ...typography.title, color: palette.inkInverse },
   headerSubtitle: {
-    fontSize: 12,
-    color: '#E0E0E0',
+    ...typography.caption,
+    color: 'rgba(250, 250, 248, 0.78)',
     marginTop: 2,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-    paddingTop: 20,
+
+  // ── Body ─────────────────────────────────────────────────────────────────
+  content: { flex: 1 },
+  contentInner: {
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing['4xl'],
   },
+
+  // ── Date card ────────────────────────────────────────────────────────────
   dateCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
+    gap: spacing.md,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: palette.borderHairline,
+    ...elevation.level1,
+  },
+  dateOverline: {
+    ...typography.overline,
+    color: palette.inkMuted,
   },
   dateText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    flex: 1,
+    ...typography.subtitle,
+    color: palette.inkStrong,
+    marginTop: 2,
   },
-  statusBadge: {
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 14,
+  statusPill: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radii.pill,
   },
-  statusBadgeText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '600',
+  statusPillText: {
+    ...typography.overline,
+    letterSpacing: 0.6,
   },
+
+  // ── Section card ─────────────────────────────────────────────────────────
   sectionCard: {
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 16,
+    backgroundColor: palette.surface,
+    borderRadius: radii.lg,
+    padding: spacing.lg,
+    marginBottom: spacing.md,
     borderWidth: 1,
-    borderColor: '#E0E0E0',
+    borderColor: palette.borderHairline,
+    ...elevation.level1,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
   },
   sectionDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    marginRight: 10,
+    width: 10, height: 10,
+    borderRadius: radii.pill,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#333',
+    ...typography.subtitle,
+    color: palette.inkStrong,
   },
-  timeRow: {
+
+  // ── Detail rows ──────────────────────────────────────────────────────────
+  detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    paddingVertical: spacing.sm,
+    gap: spacing.md,
   },
-  label: {
-    fontSize: 14,
-    color: '#888',
+  detailLabel: {
+    ...typography.caption,
+    color: palette.inkMuted,
   },
-  value: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+  detailValue: {
+    ...typography.bodyEmphasis,
+    color: palette.inkStrong,
+    flexShrink: 1,
+    textAlign: 'right',
   },
-  coordsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  coordsValue: {
-    fontSize: 13,
-    color: '#555',
+  detailValueMono: {
     fontFamily: 'monospace',
+    fontSize: 13,
   },
+
+  // ── Map button ───────────────────────────────────────────────────────────
   mapButton: {
-    backgroundColor: '#4CAF50',
-    borderRadius: 10,
-    flexDirection: 'row',
+    borderRadius: radii.md,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    marginTop: 4,
-  },
-  mapButtonIcon: {
-    fontSize: 18,
-    marginRight: 8,
+    marginTop: spacing.sm,
+    ...elevation.level1,
   },
   mapButtonText: {
-    color: '#FFF',
-    fontSize: 14,
-    fontWeight: '600',
+    ...typography.button,
+    color: palette.inkInverse,
   },
-  noCoordsRow: {
-    paddingVertical: 12,
-    alignItems: 'center',
-  },
+
   noCoordsText: {
-    fontSize: 14,
-    color: '#999',
+    ...typography.caption,
+    color: palette.inkSoft,
     fontStyle: 'italic',
+    paddingVertical: spacing.md,
   },
-  geofenceRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
+
   geofenceBadge: {
-    borderRadius: 8,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
   },
   geofenceBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
+    ...typography.overline,
+    letterSpacing: 0.6,
   },
+
+  // ── Duration card (the only filled-brand card on the screen) ─────────────
   durationCard: {
-    backgroundColor: '#1E68B8',
-    borderRadius: 12,
-    padding: 20,
-    marginBottom: 30,
+    backgroundColor: palette.brandDeep,
+    borderRadius: radii.lg,
+    padding: spacing.xl,
+    marginTop: spacing.md,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    ...elevation.level3,
   },
   durationLabel: {
-    fontSize: 16,
-    color: '#E0E0E0',
+    ...typography.caption,
+    color: 'rgba(250, 250, 248, 0.78)',
+    fontWeight: '600',
+    letterSpacing: 0.4,
   },
   durationValue: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#FFF',
+    ...typography.display,
+    color: palette.inkInverse,
+    letterSpacing: -0.6,
+  },
+  durationUnit: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: 'rgba(250, 250, 248, 0.78)',
   },
 });
