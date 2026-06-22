@@ -20,6 +20,10 @@ import { SalarySlipListScreen } from './src/screens/SalarySlipListScreen';
 import { SalarySlipDetailScreen } from './src/screens/SalarySlipDetailScreen';
 import { ReportsScreen } from './src/screens/ReportsScreen';
 
+// Phase 3 — attendance report & holidays
+import { AttendanceReportScreen } from './src/screens/AttendanceReportScreen';
+import { HolidayListScreen } from './src/screens/HolidayListScreen';
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
@@ -49,6 +53,10 @@ export default function App() {
         <Stack.Screen name="SalarySlipList" component={SalarySlipListScreen} />
         <Stack.Screen name="SalarySlipDetail" component={SalarySlipDetailScreen} />
         <Stack.Screen name="Reports" component={ReportsScreen} />
+
+        {/* Phase 3 routes */}
+        <Stack.Screen name="AttendanceReport" component={AttendanceReportScreen} />
+        <Stack.Screen name="HolidayList" component={HolidayListScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

@@ -376,7 +376,7 @@ export const EmployeeHomeScreen: React.FC<EmployeeHomeProps> = ({ route, navigat
         </View>
 
         {/* ╭───── HR self-service tiles ─────╮
-            Three quick-access cards for the new Phase 2 features */}
+            Quick-access cards for the self-service features */}
         <Text style={styles.sectionLabel}>HR self-service</Text>
         <View style={styles.menuRow}>
           <MenuTile
@@ -399,6 +399,20 @@ export const EmployeeHomeScreen: React.FC<EmployeeHomeProps> = ({ route, navigat
             tint={palette.successSoft}
             ink={palette.successDeep}
             onPress={() => navigation.navigate('SalarySlipList', { user, token })}
+          />
+          <MenuTile
+            label="Report"
+            hint="Attendance"
+            tint={palette.brandSoft}
+            ink={palette.brandDeep}
+            onPress={() => navigation.navigate('AttendanceReport', { user, token })}
+          />
+          <MenuTile
+            label="Holidays"
+            hint="Upcoming"
+            tint={palette.warningSoft}
+            ink={palette.warningDeep}
+            onPress={() => navigation.navigate('HolidayList', { user, token })}
           />
         </View>
       </ScrollView>
@@ -891,14 +905,17 @@ const styles = StyleSheet.create({
     color: palette.inkBase,
   },
 
-  // ── HR self-service tiles (Phase 2) ─────────────────────────────────────
+  // ── HR self-service tiles ───────────────────────────────────────────────
+  // Wrapping grid: ~3 tiles per row, growing to fill the trailing gap.
   menuRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: spacing.md,
     marginTop: spacing.md,
   },
   menuTile: {
-    flex: 1,
+    flexBasis: '30%',
+    flexGrow: 1,
     backgroundColor: palette.surface,
     borderRadius: radii.lg,
     padding: spacing.md,

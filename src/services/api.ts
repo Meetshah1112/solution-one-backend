@@ -417,4 +417,47 @@ export const api = {
       handleError(error, 'Failed to load reports');
     }
   },
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Attendance report (employee self-service)
+  // ────────────────────────────────────────────────────────────────────────
+  getAttendanceReport: async (token: string, month: number, year: number) => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/attendance/report?month=${month}&year=${year}`,
+        authHeaders(token),
+      );
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load attendance report');
+    }
+  },
+
+  getAttendanceReportHtml: async (token: string, month: number, year: number) => {
+    try {
+      const response = await axios.get(
+        `${API_BASE_URL}/attendance/report/html?month=${month}&year=${year}`,
+        authHeaders(token),
+      );
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load attendance report');
+    }
+  },
+
+  // ────────────────────────────────────────────────────────────────────────
+  // Holidays
+  // ────────────────────────────────────────────────────────────────────────
+  getHolidays: async (token: string, scope: 'upcoming' | 'all' = 'upcoming', year?: number) => {
+    try {
+      const yearParam = year ? `&year=${year}` : '';
+      const response = await axios.get(
+        `${API_BASE_URL}/holidays?scope=${scope}${yearParam}`,
+        authHeaders(token),
+      );
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load holidays');
+    }
+  },
 };

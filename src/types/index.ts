@@ -147,6 +147,34 @@ export interface ReportItem {
 }
 
 // ────────────────────────────────────────────────────────────────────────────
+// Attendance report (employee self-service)
+// ────────────────────────────────────────────────────────────────────────────
+export interface AttendanceReportRow {
+  date: string;
+  punch_in: string | null;
+  punch_out: string | null;
+  punch_count: number;
+  worked_minutes: number;
+  status: 'Present' | 'Absent';
+}
+
+export interface AttendanceReportSummary {
+  present_days: number;
+  total_minutes: number;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
+// Holidays
+// ────────────────────────────────────────────────────────────────────────────
+export interface Holiday {
+  id: number;
+  name: string;
+  date: string;
+  type: string;
+  remarks: string | null;
+}
+
+// ────────────────────────────────────────────────────────────────────────────
 // Navigation
 // ────────────────────────────────────────────────────────────────────────────
 export type RootStackParamList = {
@@ -175,4 +203,8 @@ export type RootStackParamList = {
   SalarySlipList: { user: User; token: string };
   SalarySlipDetail: { user: User; token: string; slipId: number };
   Reports: { user: User; token: string };
+
+  // Phase 3 — attendance report + holidays
+  AttendanceReport: { user: User; token: string };
+  HolidayList: { user: User; token: string };
 };
