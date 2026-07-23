@@ -414,6 +414,13 @@ export const EmployeeHomeScreen: React.FC<EmployeeHomeProps> = ({ route, navigat
             ink={palette.warningDeep}
             onPress={() => navigation.navigate('HolidayList', { user, token })}
           />
+          <MenuTile
+            label="Approvals"
+            hint="Team leaves"
+            tint={palette.successSoft}
+            ink={palette.successDeep}
+            onPress={() => navigation.navigate('TeamApprovals', { user, token })}
+          />
         </View>
       </ScrollView>
 

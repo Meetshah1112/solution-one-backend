@@ -312,6 +312,37 @@ export const api = {
   },
 
   // ────────────────────────────────────────────────────────────────────────
+  // Multi-level leave approval (senior → HR chain)
+  // ────────────────────────────────────────────────────────────────────────
+  // Pending requests where the logged-in user is the active-level approver.
+  getTeamApprovals: async (token: string) => {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/leave/approvals`, authHeaders(token));
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to load team approvals');
+    }
+  },
+
+  decideTeamApproval: async (
+    token: string,
+    authId: number,
+    decision: 'Approved' | 'Rejected',
+    comment?: string,
+  ) => {
+    try {
+      const response = await axios.post(
+        `${API_BASE_URL}/leave/approvals/${authId}/decide`,
+        { decision, comment },
+        authHeaders(token),
+      );
+      return response.data;
+    } catch (error: any) {
+      handleError(error, 'Failed to submit decision');
+    }
+  },
+
+  // ────────────────────────────────────────────────────────────────────────
   // Attendance adjustment
   // ────────────────────────────────────────────────────────────────────────
   applyAdjustment: async (

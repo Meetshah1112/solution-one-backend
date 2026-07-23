@@ -1,0 +1,16 @@
+# Dependencies
+node_modules/
+
+# Secrets / environment — set these directly on the server, never commit
+.env
+.env.*
+!.env.example
+
+# Local tools / binaries (ngrok, etc. — never deploy these)
+*.exe
+*.old
+
+# Logs
+*.log
+npm-debug.log*
+logs/

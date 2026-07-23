@@ -24,6 +24,9 @@ import { ReportsScreen } from './src/screens/ReportsScreen';
 import { AttendanceReportScreen } from './src/screens/AttendanceReportScreen';
 import { HolidayListScreen } from './src/screens/HolidayListScreen';
 
+// Phase 4 — multi-level leave approval (senior → HR)
+import { TeamApprovalScreen } from './src/screens/TeamApprovalScreen';
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
@@ -57,6 +60,9 @@ export default function App() {
         {/* Phase 3 routes */}
         <Stack.Screen name="AttendanceReport" component={AttendanceReportScreen} />
         <Stack.Screen name="HolidayList" component={HolidayListScreen} />
+
+        {/* Phase 4 routes */}
+        <Stack.Screen name="TeamApprovals" component={TeamApprovalScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

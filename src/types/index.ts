@@ -68,11 +68,30 @@ export interface LeaveRequest {
   status: LeaveStatus;
   approved_date: string | null;
   approver_comment: string | null;
+  /** Name of the senior whose approval the request is currently awaiting. */
+  pending_with?: string | null;
   leave_code: string;
   leave_name: string;
   // Admin-side extras
   employee_id?: number;
   employee_name?: string;
+}
+
+/** A pending item in the logged-in senior's approval queue. */
+export interface TeamApproval {
+  auth_id: number;
+  level: number;
+  id: number;
+  applied_on: string;
+  from_date: string;
+  to_date: string;
+  days: number;
+  day_type: LeaveDayType;
+  reason: string | null;
+  employee_id: number;
+  employee_name: string;
+  leave_code: string;
+  leave_name: string;
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -207,4 +226,7 @@ export type RootStackParamList = {
   // Phase 3 — attendance report + holidays
   AttendanceReport: { user: User; token: string };
   HolidayList: { user: User; token: string };
+
+  // Phase 4 — multi-level leave approval (senior → HR)
+  TeamApprovals: { user: User; token: string };
 };

@@ -559,6 +559,16 @@ const LeaveCard: React.FC<{
         </View>
       )}
 
+      {/* Whose desk the pending request currently sits on (approval chain) */}
+      {leave.status === 'Pending' && leave.pending_with && (
+        <View style={styles.leaveMetaRow}>
+          <Text style={styles.leaveMetaLabel}>With</Text>
+          <Text style={styles.leaveMetaValue} numberOfLines={1}>
+            {leave.pending_with} — awaiting approval
+          </Text>
+        </View>
+      )}
+
       {leave.status === 'Pending' && (
         <KineticPressable
           style={styles.cancelBtn}

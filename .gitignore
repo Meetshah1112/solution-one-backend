@@ -57,3 +57,8 @@ coverage/
 # editor
 
 .vscode/
+
+# binaries (ngrok etc. — never commit, even under backend/)
+
+*.exe
+*.old
