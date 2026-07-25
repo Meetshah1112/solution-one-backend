@@ -2417,7 +2417,7 @@ GO
           bcrypt.compare first; on failure it falls back to a plaintext
           equality check, so these demo users log in with Test@123.
         - Replace with real bcrypt hashes before any non-demo use.
-      All names / emails are synthetic (example.com is a reserved doc domain).
+      All names / emails are synthetic; logins use the solone.com test domain.
       Everything is guarded by IF NOT EXISTS, so re-running changes nothing.
    ============================================================================ */
 
@@ -2511,18 +2511,18 @@ UPDATE dbo.HR_EmployeeMaster SET ReportingPersonID = @EmpHr
 
 /* Users (login). Role gate: ADMIN/SUPER_ADMIN unlock admin endpoints; EMPLOYEE
    is the ESS role. Manager approves via ReportingPersonID, not via role. */
-IF NOT EXISTS (SELECT 1 FROM dbo.HR_UserMaster WHERE Email = N'alex.rivera@example.com')
+IF NOT EXISTS (SELECT 1 FROM dbo.HR_UserMaster WHERE Email = N'emp1@solone.com')
 BEGIN
     INSERT INTO dbo.HR_UserMaster (Code, UserName, Email, Mobile, PasswordHash, Role, EmployeeMasterID, CreatedBy, CreatedDt, SystemName, [Status], CompanyMasterID)
-    SELECT N'USR-EMP001', N'Alex Rivera',  N'alex.rivera@example.com',  N'9000000001', N'Test@123', N'EMPLOYEE',    em.EmployeeMasterID, 1, GETDATE(), N'SEED', 1, @Cmp FROM dbo.HR_EmployeeMaster em WHERE em.Code = N'EMP001'
+    SELECT N'USR-EMP001', N'Alex Rivera',  N'emp1@solone.com',  N'9000000001', N'Test@123', N'EMPLOYEE',    em.EmployeeMasterID, 1, GETDATE(), N'SEED', 1, @Cmp FROM dbo.HR_EmployeeMaster em WHERE em.Code = N'EMP001'
     UNION ALL
-    SELECT N'USR-EMP002', N'Bailey Chen',  N'bailey.chen@example.com',  N'9000000002', N'Test@123', N'EMPLOYEE',    em.EmployeeMasterID, 1, GETDATE(), N'SEED', 1, @Cmp FROM dbo.HR_EmployeeMaster em WHERE em.Code = N'EMP002'
+    SELECT N'USR-EMP002', N'Bailey Chen',  N'emp2@solone.com',  N'9000000002', N'Test@123', N'EMPLOYEE',    em.EmployeeMasterID, 1, GETDATE(), N'SEED', 1, @Cmp FROM dbo.HR_EmployeeMaster em WHERE em.Code = N'EMP002'
     UNION ALL
-    SELECT N'USR-EMP003', N'Casey Nolan',  N'casey.nolan@example.com',  N'9000000003', N'Test@123', N'EMPLOYEE',    em.EmployeeMasterID, 1, GETDATE(), N'SEED', 1, @Cmp FROM dbo.HR_EmployeeMaster em WHERE em.Code = N'EMP003'
+    SELECT N'USR-EMP003', N'Casey Nolan',  N'emp3@solone.com',  N'9000000003', N'Test@123', N'EMPLOYEE',    em.EmployeeMasterID, 1, GETDATE(), N'SEED', 1, @Cmp FROM dbo.HR_EmployeeMaster em WHERE em.Code = N'EMP003'
     UNION ALL
-    SELECT N'USR-MGR001', N'Devin Osei',   N'devin.osei@example.com',   N'9000000004', N'Test@123', N'EMPLOYEE',    em.EmployeeMasterID, 1, GETDATE(), N'SEED', 1, @Cmp FROM dbo.HR_EmployeeMaster em WHERE em.Code = N'MGR001'
+    SELECT N'USR-MGR001', N'Devin Osei',   N'senior1@solone.com',   N'9000000004', N'Test@123', N'EMPLOYEE',    em.EmployeeMasterID, 1, GETDATE(), N'SEED', 1, @Cmp FROM dbo.HR_EmployeeMaster em WHERE em.Code = N'MGR001'
     UNION ALL
-    SELECT N'USR-HRA001', N'Elliot Park',  N'elliot.park@example.com',  N'9000000005', N'Test@123', N'SUPER_ADMIN', em.EmployeeMasterID, 1, GETDATE(), N'SEED', 1, @Cmp FROM dbo.HR_EmployeeMaster em WHERE em.Code = N'HRA001';
+    SELECT N'USR-HRA001', N'Elliot Park',  N'hr@solone.com',  N'9000000005', N'Test@123', N'SUPER_ADMIN', em.EmployeeMasterID, 1, GETDATE(), N'SEED', 1, @Cmp FROM dbo.HR_EmployeeMaster em WHERE em.Code = N'HRA001';
 END
 
 /* Link employees back to their user rows (mirrors live wiring). */
