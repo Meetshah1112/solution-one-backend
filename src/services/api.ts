@@ -3,7 +3,7 @@ import axios from 'axios';
 // API Configuration
 // Cloudflare Tunnel -> company server backend (localhost:3000). HTTPS, bypasses NAT.
 // NOTE: this quick-tunnel URL changes if cloudflared restarts — rebuild the APK if so.
-const API_BASE_URL = 'https://timothy-burns-derived-conceptual.trycloudflare.com/api';
+const API_BASE_URL = 'https://silence-diameter-pounds-forests.trycloudflare.com/api';
 
 // Helper: build auth headers
 const authHeaders = (token: string) => ({
