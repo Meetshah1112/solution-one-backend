@@ -1,11 +1,9 @@
 import axios from 'axios';
 
 // API Configuration
-// Public ngrok static domain pointing at the local backend on port 3000
-const API_BASE_URL = 'https://cordie-fogged-radia.ngrok-free.dev/api';
-
-// Globally skip ngrok's free-tier browser warning page for all requests.
-axios.defaults.headers.common['ngrok-skip-browser-warning'] = 'true';
+// Cloudflare Tunnel -> company server backend (localhost:3000). HTTPS, bypasses NAT.
+// NOTE: this quick-tunnel URL changes if cloudflared restarts — rebuild the APK if so.
+const API_BASE_URL = 'https://timothy-burns-derived-conceptual.trycloudflare.com/api';
 
 // Helper: build auth headers
 const authHeaders = (token: string) => ({
