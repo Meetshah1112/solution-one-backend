@@ -7,9 +7,7 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "jsEngine": "hermes",
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -31,10 +29,11 @@
       },
       "package": "com.solutionone.app",
       "permissions": [
-        "ACCESS_FINE_LOCATION",
-        "ACCESS_COARSE_LOCATION",
-        "INTERNET",
-        "CAMERA"
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.INTERNET",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO"
       ],
       "versionCode": 1,
       "usesCleartextTraffic": true
@@ -61,6 +60,9 @@
       "eas": {
         "projectId": "b5d5976b-6938-4f11-8a15-62edde75d584"
       }
+    },
+    "updates": {
+      "url": "https://u.expo.dev/b5d5976b-6938-4f11-8a15-62edde75d584"
     }
   }
 }
