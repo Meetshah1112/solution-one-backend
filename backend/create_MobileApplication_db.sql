@@ -635,11 +635,7 @@ BEGIN
         [EditUserDateTime] [datetime2](3) NULL,
         [SystemName] [nvarchar](50) NOT NULL,
         [ProcessingSource] [nvarchar](20) NULL,
-        -- DEFAULT is REQUIRED: the app's punch INSERT (server.js) does not supply
-        -- IsLocked. Without this default the first punch of the day fails with
-        -- "Cannot insert the value NULL into column 'IsLocked'". Mirrors the
-        -- sibling HR_DailyAttendance.IsLocked default above.
-        [IsLocked] [bit] NOT NULL CONSTRAINT [DF_HR_DailyAttendanceMultiPunch_IsLocked] DEFAULT ((0)),
+        [IsLocked] [bit] NOT NULL,
      CONSTRAINT [PK_HR_DailyAttendanceMultiPunch] PRIMARY KEY CLUSTERED
     (
         [Oid] ASC
@@ -698,9 +694,7 @@ BEGIN
         [AppliedDay] [decimal](18, 2) NOT NULL,
         [DayLeaveType] [nvarchar](50) NOT NULL,
         [HalfDayLeave] [nvarchar](50) NULL,
-        -- Widened 50 -> 500: server.js sends the reason sliced to 500 chars, so
-        -- nvarchar(50) fails with "String or binary data would be truncated".
-        [LeaveReason] [nvarchar](500) NULL,
+        [LeaveReason] [nvarchar](50) NULL,
         [Status] [nvarchar](10) NOT NULL,
         [FASYear] [nvarchar](10) NOT NULL,
         [YearID] [bigint] NOT NULL,

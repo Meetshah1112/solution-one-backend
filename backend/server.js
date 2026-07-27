@@ -407,10 +407,10 @@ app.post('/api/attendance/punch', authMiddleware, async (req, res) => {
                 .input('month', now.getMonth() + 1)
                 .input('today', today)
                 .input('masterWH', emp.WorkingHours || 0)
-                .input('shiftId', emp.ShiftMasterID)
-                .input('categoryId', emp.CategoryMasterID)
-                .input('branchId', emp.BranchMasterID)
-                .input('companyId', emp.CompanyMasterID)
+                .input('shiftId', emp.ShiftMasterID || 0)
+                .input('categoryId', emp.CategoryMasterID || 0)
+                .input('branchId', emp.BranchMasterID || 0)
+                .input('companyId', emp.CompanyMasterID || 0)
                 .input('entryUser', userId)
                 .query(`
                     INSERT INTO HR_DailyAttendanceMultiPunch (
@@ -418,7 +418,7 @@ app.post('/api/attendance/punch', authMiddleware, async (req, res) => {
                         PunchDateTime1, ActualWorkingHours, MasterWorkingHours, WorkingHours,
                         ShiftMasterID, MonthlyAttendID, PayrollConfirmationID,
                         CategoryMasterID, BranchMasterID, CompanyMasterID, YearID, FormID,
-                        EntryUserMasterID, EntryUserDateTime, SystemName
+                        EntryUserMasterID, EntryUserDateTime, SystemName, IsLocked
                     )
                     OUTPUT INSERTED.Oid
                     VALUES (
@@ -426,7 +426,7 @@ app.post('/api/attendance/punch', authMiddleware, async (req, res) => {
                         GETDATE(), 0, @masterWH, 0,
                         @shiftId, 0, 0,
                         @categoryId, @branchId, @companyId, 0, 0,
-                        @entryUser, GETDATE(), 'MobileApp'
+                        @entryUser, GETDATE(), 'MobileApp', 0
                     )
                 `);
 
@@ -855,8 +855,14 @@ app.post('/api/admin/employees/:id/branch-permissions', authMiddleware, async (r
             { id: employeeId }
         );
 
-        // Insert each allowed unit
+        // Insert each allowed unit. De-dupe by unit_id first: the table has a UNIQUE
+        // (UserMasterID, AllowedUnitMasterId) constraint, so a repeated unit_id in the
+        // payload would throw AFTER the earlier DELETE and leave the employee with no access.
+        const seenUnitIds = new Set();
         for (const au of allowed_units) {
+            if (au.unit_id == null || Number.isNaN(Number(au.unit_id))) continue;
+            if (seenUnitIds.has(au.unit_id)) continue;
+            seenUnitIds.add(au.unit_id);
             await req.pool.request()
                 .input('userId', employeeId)
                 .input('mainUnit', main_unit_id)
@@ -1301,9 +1307,10 @@ app.post('/api/leave/apply', authMiddleware, async (req, res) => {
                 days: appliedDay,
                 dayType: dayTypeNorm,
                 halfDay: half_day || null,
-                // Live LeaveReason is widened to nvarchar(500) by the alignment script;
-                // keep an extra safety truncate in case the alignment isn't applied yet.
-                reason: reason ? String(reason).slice(0, 500) : null,
+                // MobileApplication schema: HR_LeaveApplication.LeaveReason is nvarchar(50).
+                // Truncate to fit so a long reason cannot throw "String or binary data would
+                // be truncated". (Widen the column to nvarchar(500) if longer reasons are needed.)
+                reason: reason ? String(reason).slice(0, 50) : null,
                 fasYear,
                 empId: req.user.employeeId,
                 userId: req.user.userId,
@@ -1778,7 +1785,8 @@ app.post('/api/admin/leave/:id/decide', authMiddleware, async (req, res) => {
                WHERE LeaveApplicationID = @id`;
 
         await dbQuery(req.pool, updateSql,
-            { id, decision, userId: req.user.userId, comment: comment || null }
+            // HR_LeaveApplication.ApproverComment is nvarchar(500) — cap to fit.
+            { id, decision, userId: req.user.userId, comment: comment ? String(comment).slice(0, 500) : null }
         );
 
         // HR decision overrides the senior chain: retire any levels still
@@ -1997,7 +2005,8 @@ app.post('/api/admin/adjustment/:id/decide', authMiddleware, async (req, res) =>
                  EditUserMasterID = @userId,
                  EditUserDateTime = GETDATE()
              WHERE Oid = @id`,
-            { id, decision, userId: req.user.userId, comment: comment || null }
+            // HR_AttendenceAdjustment.ManagerComment is nvarchar(255) — cap to fit.
+            { id, decision, userId: req.user.userId, comment: comment ? String(comment).slice(0, 255) : null }
         );
 
         res.json({
